@@ -129,7 +129,7 @@ export class MSSQLIntrospector extends BaseIntrospector {
     try {
       // ----- 1. Determine which schemas to introspect -----
       const hasFilter =
-        this.config.schemas !== undefined && this.config.schemas.length > 0;
+        this.config.schemas !== undefined;
       const schemaFilter = new Set(this.config.schemas ?? []);
 
       const schemas = await this.querySchemas(conn);
@@ -142,7 +142,9 @@ export class MSSQLIntrospector extends BaseIntrospector {
       if (targetSchemas.length === 0) {
         errors.push(
           hasFilter
-            ? `No matching schemas found. Filter: ${this.config.schemas!.join(', ')}`
+            ? (this.config.schemas!.length > 0
+                ? `No matching schemas found. Filter: ${this.config.schemas!.join(', ')}`
+                : 'No schemas to introspect (schemas: [])')
             : 'No non-system schemas found',
         );
         return { nodes, edges, durationMs: Date.now() - startTime, errors };
