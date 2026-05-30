@@ -10,6 +10,7 @@
  *  - MySQLIntrospector     (mysql.ts)
  *  - SQLiteIntrospector    (sqlite.ts)
  *  - MSSQLIntrospector     (mssql.ts)
+ *  - MongoDBIntrospector   (mongodb.ts)
  */
 
 import { DbConnectionConfig } from '../types';
@@ -17,6 +18,7 @@ import { PostgresIntrospector } from './postgres';
 import { MySQLIntrospector } from './mysql';
 import { SQLiteIntrospector } from './sqlite';
 import { MSSQLIntrospector } from './mssql';
+import { MongoDBIntrospector } from './mongodb';
 import { Introspector, BaseIntrospector } from './base';
 
 // Re-export base types
@@ -43,10 +45,12 @@ export function createIntrospector(config: DbConnectionConfig): Introspector {
       return new SQLiteIntrospector(config);
     case 'mssql':
       return new MSSQLIntrospector(config);
+    case 'mongodb':
+      return new MongoDBIntrospector(config);
     default:
       throw new Error(
         `Unsupported database engine: "${config.engine}". ` +
-        `Supported engines: postgresql, mysql, mariadb, sqlite, mssql`,
+        `Supported engines: postgresql, mysql, mariadb, sqlite, mssql, mongodb`,
       );
   }
 }
