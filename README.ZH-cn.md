@@ -35,18 +35,26 @@ npx dbgraph --help
 
 ## 快速开始
 
-> **快捷方式**: 所有命令也可用 `npm run cli -- <命令>` 替代 `node dist/bin/dbgraph.js <命令>`，会自动先执行构建。
+> 安装后直接使用 `dbgraph` 命令。如需本地开发，可用 `npm run cli -- <命令>` 替代（自动先构建）。
 
 ### 1. 初始化项目
 
+所有命令默认使用当前目录，也可指定目录路径。
+
 ```bash
-# 初始化一个项目
+# 初始化当前目录
+dbgraph init
+
+# 初始化并立即索引（一步完成）
+dbgraph init -i
+
+# 初始化指定目录
 dbgraph init ./demo-project
 ```
 
 这会创建：
-- `demo-project/.dbgraph/` —— 知识图谱数据目录
-- `demo-project/dbgraph-db.json` —— 数据库连接配置（默认模板）
+- `.dbgraph/` —— 知识图谱数据目录
+- `dbgraph-db.json` —— 数据库连接配置（默认模板）
 
 ### 2. 配置数据库连接
 
@@ -76,7 +84,7 @@ dbgraph init ./demo-project
 ### 3. 提取 Schema
 
 ```bash
-dbgraph index ./demo-project
+dbgraph index
 ```
 
 把数据库 schema 提取到知识图谱中。首次运行会连接所有配置的数据库，提取表/列/外键/索引/视图等信息。
@@ -85,17 +93,17 @@ dbgraph index ./demo-project
 
 ```bash
 # 搜索表/列
-node dist/bin/dbgraph.js query orders ./demo-project
-node dist/bin/dbgraph.js query users --kind table ./demo-project
+dbgraph query orders
+dbgraph query users --kind table
 
 # 查看完整表结构
-node dist/bin/dbgraph.js context public.orders ./demo-project
+dbgraph context public.orders
 
 # 查看状态
-node dist/bin/dbgraph.js status ./demo-project
+dbgraph status
 
 # 列出数据源
-node dist/bin/dbgraph.js sources ./demo-project
+dbgraph sources
 ```
 
 ## 配置说明
@@ -116,10 +124,9 @@ node dist/bin/dbgraph.js sources ./demo-project
 
 ## CLI 命令参考
 
-所有命令格式：
-```
-node dist/bin/dbgraph.js <命令> [选项] [目录参数]
-```
+所有命令格式：`dbgraph <命令> [选项] [目录]`
+
+不填目录时默认为当前目录。
 
 | 命令 | 说明 |
 |------|------|
@@ -136,31 +143,37 @@ node dist/bin/dbgraph.js <命令> [选项] [目录参数]
 ### `init`
 
 ```bash
-# 初始化项目
-node dist/bin/dbgraph.js init ./my-project
+# 初始化当前目录
+dbgraph init
 
-# 初始化后立即索引
-node dist/bin/dbgraph.js init ./my-project --index
+# 初始化并立即索引
+dbgraph init -i
+
+# 初始化指定目录
+dbgraph init ./my-project
 
 # 指定配置文件路径
-node dist/bin/dbgraph.js init ./my-project -c ./my-project/custom-config.json
+dbgraph init ./my-project -c ./my-project/custom-config.json
 ```
 
 ### `index`
 
 ```bash
-# 索引指定项目配置的数据库
-node dist/bin/dbgraph.js index ./my-project
+# 索引当前目录配置的数据库
+dbgraph index
 
 # 指定配置文件
-node dist/bin/dbgraph.js index ./my-project -c ./my-project/custom-config.json
+dbgraph index ./my-project -c ./my-project/custom-config.json
 ```
 
 ### `serve`（MCP 模式）
 
 ```bash
-# 启动 MCP stdio 服务器
-node dist/bin/dbgraph.js serve ./my-project
+# 启动 MCP stdio 服务器（当前目录）
+dbgraph serve
+
+# 指定项目目录
+dbgraph serve ./my-project
 ```
 
 AI Agent 连接到 MCP 后自动发现 `dbgraph_*` 工具。
@@ -169,22 +182,22 @@ AI Agent 连接到 MCP 后自动发现 `dbgraph_*` 工具。
 
 ```bash
 # 搜索
-node dist/bin/dbgraph.js query orders ./my-project
+dbgraph query orders
 
 # 按类型过滤
-node dist/bin/dbgraph.js query orders --kind table ./my-project
-node dist/bin/dbgraph.js query amount --kind column ./my-project
+dbgraph query orders --kind table
+dbgraph query amount --kind column
 
 # JSON 格式输出
-node dist/bin/dbgraph.js query orders --json ./my-project
+dbgraph query orders --json
 ```
 
 ### `context`
 
 ```bash
 # 查看表结构
-node dist/bin/dbgraph.js context orders ./my-project
-node dist/bin/dbgraph.js context public.orders ./my-project
+dbgraph context orders
+dbgraph context public.orders
 ```
 
 输出示例：
@@ -303,10 +316,7 @@ npm run build
 npm run dev
 
 # 运行帮助
-node dist/bin/dbgraph.js --help
-
-# 快速构建 + 运行（等价于 build 后执行 node dist/bin/dbgraph.js）
-npm run cli -- status ./my-project
+npm run cli -- --help
 ```
 
 ### 添加新数据库引擎

@@ -35,19 +35,28 @@ npx dbgraph --help
 
 ## Quick Start
 
+All commands default to the current directory. Pass a directory path to target another project.
+
 ### 1. Initialize a project
 
 ```bash
+# Initialize current directory
+dbgraph init
+
+# Or initialize + index in one step
+dbgraph init -i
+
+# Or target a specific directory
 dbgraph init ./demo-project
 ```
 
 This creates:
-- `demo-project/.dbgraph/` — knowledge graph data directory
-- `demo-project/dbgraph-db.json` — database connection config (default template)
+- `.dbgraph/` — knowledge graph data directory
+- `dbgraph-db.json` — database connection config (default template)
 
 ### 2. Configure database connections
 
-Edit `demo-project/dbgraph-db.json` with your database info:
+Edit `dbgraph-db.json` with your database info:
 
 ```json
 {
@@ -73,7 +82,7 @@ Edit `demo-project/dbgraph-db.json` with your database info:
 ### 3. Extract schema
 
 ```bash
-dbgraph index ./demo-project
+dbgraph index
 ```
 
 Introspects all configured databases and stores tables, columns, foreign keys, indexes, and views into the knowledge graph.
@@ -82,17 +91,17 @@ Introspects all configured databases and stores tables, columns, foreign keys, i
 
 ```bash
 # Search tables/columns
-dbgraph query orders ./demo-project
-dbgraph query users --kind table ./demo-project
+dbgraph query orders
+dbgraph query users --kind table
 
 # View full table structure
-dbgraph context public.orders ./demo-project
+dbgraph context public.orders
 
 # Check status
-dbgraph status ./demo-project
+dbgraph status
 
 # List data sources
-dbgraph sources ./demo-project
+dbgraph sources
 ```
 
 ## Configuration
@@ -130,11 +139,14 @@ All commands follow: `dbgraph <command> [options] [directory]`
 ### `init`
 
 ```bash
-# Initialize a project
-dbgraph init ./my-project
+# Initialize current directory
+dbgraph init
 
 # Init and index immediately
-dbgraph init ./my-project --index
+dbgraph init -i
+
+# Initialize a specific directory
+dbgraph init ./my-project
 
 # Specify config file path
 dbgraph init ./my-project -c ./my-project/custom-config.json
@@ -143,8 +155,8 @@ dbgraph init ./my-project -c ./my-project/custom-config.json
 ### `index`
 
 ```bash
-# Index configured databases
-dbgraph index ./my-project
+# Index configured databases (current dir)
+dbgraph index
 
 # Use a specific config file
 dbgraph index ./my-project -c ./my-project/custom-config.json
@@ -153,7 +165,10 @@ dbgraph index ./my-project -c ./my-project/custom-config.json
 ### `serve` (MCP mode)
 
 ```bash
-# Start MCP stdio server
+# Start MCP stdio server (current dir)
+dbgraph serve
+
+# Start for a specific project directory
 dbgraph serve ./my-project
 ```
 
