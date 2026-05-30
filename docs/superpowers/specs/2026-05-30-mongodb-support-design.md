@@ -1,8 +1,9 @@
 # MongoDB Support for DBGraph
 
 Date: 2026-05-30
-Status: Approved
+Status: Approved (post-review)
 Authors: AI Architect / User
+Reviewer: @oracle
 
 ## Overview
 
@@ -16,7 +17,7 @@ while respecting these differences.
 
 | MongoDB Concept | Graph Node Kind | Notes |
 |---|---|---|
-| Database | `database` | Container node |
+| Database | `schema` | Consistent with all other engines (Postgres/MySQL/MSSQL all use `schema`) |
 | Collection | `table` | Includes capped, timeseries, clustered collections |
 | View | `view` | Read-only aggregation view, pipeline def as `signature` |
 | Index | `index` | All types: single, compound, text, geospatial, hashed, TTL |
@@ -27,7 +28,7 @@ No new `NodeKind` or `EdgeKind` values are needed — all map to existing types.
 
 | Relationship | Edge Kind | Source → Target |
 |---|---|---|
-| Database contains collection/view | `contains` | `database` → `table`/`view` |
+| Database contains collection/view | `contains` | `schema` → `table`/`view` |
 | Collection contains index | `contains` | `table` → `index` |
 
 ### Concepts NOT mapped
@@ -44,13 +45,13 @@ Using existing helpers from `BaseIntrospector`:
 
 | Object | Qualified Name (`qn()`) | File Path (`schemaFilePath()`) |
 |---|---|---|
-| Database | `@alias.{database}` | `db://@alias/{database}` |
+| Database (as schema) | `@alias.{database}` | `db://@alias/{database}` |
 | Collection | `@alias.{database}.{collection}` | `db://@alias/{database}` |
 | Index | `@alias.{database}.{collection}.{indexName}` | `db://@alias/{database}` |
 | View | `@alias.{database}.{view}` | `db://@alias/{database}` |
 
 Because MongoDB has no schema layer, the database name serves as the schema
-parameter in all helper calls.
+parameter in all helper calls — exactly the same pattern as MySQL.
 
 ## Connection Management
 
@@ -60,14 +61,56 @@ parameter in all helper calls.
 - **Error message**: `"mongodb package is not installed. Run: npm install mongodb"`
 - **Auth mechanism**: SCRAM (default), via `auth: "user:password"` config
 
+### Connection: NOT via `createConnection()` factory
+
+**Key architectural decision**: MongoDB does NOT use the `createConnection()`
+factory or `DBConnection` interface. The `DBConnection` interface is SQL-centric
+(with `query(sql, params)`), so shoehorning MongoDB into it would require:
+
+- A `MongoDBConnection` class whose `query()` throws at runtime
+- An unsafe type cast (`as MongoDBConnection`) in the introspector
+- Dead code that could break future generic callers
+
+**Instead**: `MongoDBIntrospector.extractAll()` manages its own connection:
+
+```typescript
+import { DbConnectionConfig } from '../types';
+import { BaseIntrospector } from './base';
+import { parseAuth } from './connection';  // reuse auth parser
+
+export class MongoDBIntrospector extends BaseIntrospector {
+  async extractAll(): Promise<IntrospectResult> {
+    // 1. Lazy-import mongodb driver (with graceful error if missing)
+    // 2. Build MongoDB URI from config
+    // 3. MongoClient.connect() → get Db
+    // 4. Introspect
+    // 5. client.close()
+  }
+
+  // Override testConnection for direct MongoDB testing
+  async testConnection(): Promise<boolean> {
+    try { /* MongoClient.connect + close */ return true; }
+    catch { return false; }
+  }
+}
+```
+
 ### Connection URI Construction
 
 ```typescript
+import { parseAuth } from './connection';  // reused helper
+
 const auth = parseAuth(config.auth);
 const host = config.host || 'localhost';
 const port = config.port || 27017;
-const uri = auth.user
-  ? `mongodb://${auth.user}:${auth.password}@${host}:${port}/${config.database}`
+
+// IMPORTANT: encodeURIComponent() is REQUIRED for passwords with
+// special chars (@, :, /, ?, #, %). parseAuth() does raw split only.
+const user = auth.user ? encodeURIComponent(auth.user) : undefined;
+const pass = auth.password ? encodeURIComponent(auth.password) : undefined;
+
+const uri = user && pass
+  ? `mongodb://${user}:${pass}@${host}:${port}/${config.database}`
   : `mongodb://${host}:${port}/${config.database}`;
 ```
 
@@ -75,25 +118,32 @@ const uri = auth.user
 - TLS/SSL via `config.ssl` → `MongoClientOptions.tls`
 - Auth source defaults to the target database (not `admin`)
 
-### MongoDBConnection Class
+### testConnection() Override
 
-```
-MongoDBConnection implements DBConnection {
-  - query(): throws Error("MongoDB does not support SQL queries")
-  - getDb(): returns the native mongodb Db instance
-  - close(): calls client.close()
-}
-```
-
-`MongoDBConnection` is registered in `createConnection()` factory.
-The `MongoDBIntrospector` casts the return value to access `getDb()`:
+`BaseIntrospector.testConnection()` delegates to `createConnection()` which
+we're not using. So `MongoDBIntrospector` overrides it:
 
 ```typescript
-const conn = (await createConnection(this.config)) as MongoDBConnection;
-const db = conn.getDb();
-```
+async testConnection(): Promise<boolean> {
+  try {
+    const client = await this.connectClient();
+    await client.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-This avoids changing the `DBConnection` interface for all engines.
+private async connectClient(): Promise<MongoClient> {
+  const { MongoClient } = await importMongoDriver();  // lazy require
+  const uri = this.buildUri();
+  return MongoClient.connect(uri, {
+    tls: this.config.ssl ?? false,
+    connectTimeoutMS: 10_000,
+    serverSelectionTimeoutMS: 10_000,
+  });
+}
+```
 
 ### Default Port
 
@@ -104,7 +154,7 @@ Add `mongodb: 27017` to `defaultPorts` in `BaseIntrospector.getDisplayUri()`.
 ### Pipeline (`extractAll()`)
 
 ```
-1. Connect:   MongoClient.connect(uri, { tls: config.ssl, connectTimeoutMS: 10000 })
+1. Connect:   MongoClient.connect(uri, { tls, connectTimeoutMS, serverSelectionTimeoutMS })
 2. Get DB:    client.db(config.database)
 3. List collections:
    db.listCollections({}, { nameOnly: false, authorizedCollections: true }).toArray()
@@ -113,13 +163,14 @@ Add `mongodb: 27017` to `defaultPorts` in `BaseIntrospector.getDisplayUri()`.
    - type: "view"      → view
 5. For each collection (in parallel):
    a. indexes() → index definitions
-   b. estimatedDocumentCount() → document count (fast, no full scan)
+   b. estimatedDocumentCount() → document count
+      NOTE: accurate for standalone/replica sets, approximate on sharded clusters
 6. Build graph:
-   a. Database node
+   a. Schema (database) node
    b. Collection nodes (with validation rules + stats in metadata)
    c. View nodes (pipeline as JSON string in signature)
    d. Index nodes (key definition + properties in metadata)
-   e. Container edges (database→collection, collection→index)
+   e. Container edges (schema→collection, collection→index)
 7. Close:   client.close()
 8. Return:  IntrospectResult { nodes, edges, durationMs, errors }
 ```
@@ -134,8 +185,8 @@ Add `mongodb: 27017` to `defaultPorts` in `BaseIntrospector.getDisplayUri()`.
 | `estimatedDocumentCount` timeout | Skip count, still include collection |
 | Index query failure | Skip indexes for that collection |
 
-`authorizedCollections: true` ensures only collections the user has
-permissions for are returned.
+`authorizedCollections: true` (explicit but default in driver 4.x+) ensures
+only collections the user has permissions for are returned.
 
 ### schemas Config
 
@@ -144,11 +195,11 @@ is silently ignored for MongoDB. A comment in code documents this.
 
 ## Node/Edge Schema
 
-### Database Node (1 per source)
+### Schema (Database) Node (1 per source)
 
 ```typescript
 {
-  kind: "database",
+  kind: "schema",               // consistent with all other engines
   name: config.database,
   qualifiedName: `@${alias}.${database}`,
   filePath: `db://@${alias}/${database}`,
@@ -166,11 +217,12 @@ is silently ignored for MongoDB. A comment in code documents this.
   filePath: `db://@${alias}/${database}`,
   language: "mongodb",
   metadata: {
-    documentCount: number,  // from estimatedDocumentCount()
-    validation: {           // $jsonSchema if collection has validator
+    documentCount: number,    // estimatedDocumentCount()
+                              // CAVEAT: approximate on sharded clusters
+    validation: {             // $jsonSchema if collection has validator
       $jsonSchema: { ... }
     },
-    collectionOptions: {    // from listCollections.options
+    collectionOptions: {      // from listCollections.options
       capped?: boolean,
       size?: number,
       max?: number,
@@ -200,8 +252,8 @@ with `$jsonSchema`. Other validation operators (like `$expr`) are not stored.
 }
 ```
 
-BSON types in the pipeline are fine; `listCollections` returns plain JS
-objects that serialize cleanly with `JSON.stringify`.
+BSON types in the pipeline (ObjectId, Long, Decimal128) serialize to extended
+JSON format (`{"$oid": "..."}`). This is fine for AI agent consumption.
 
 ### Index Node (kind: "index")
 
@@ -219,7 +271,7 @@ objects that serialize cleanly with `JSON.stringify`.
     indexType: "regular" | "text" | "2dsphere" | "hashed",
     partialFilterExpression?: object,
     ttl?: number,
-    automatic?: boolean,  // true for _id index
+    automatic?: boolean,   // true for the auto-created _id index
   },
 }
 ```
@@ -232,28 +284,30 @@ understand document structure.
 
 | File | Change |
 |---|---|
-| `src/introspect/mongodb.ts` | **NEW** — `MongoDBIntrospector` |
-| `src/introspect/connection.ts` | Add `MongoDBConnection` class + factory case |
+| `src/introspect/mongodb.ts` | **NEW** — `MongoDBIntrospector` (manages own connection, overrides testConnection) |
 | `src/introspect/index.ts` | Import + register `MongoDBIntrospector` in factory |
 | `src/introspect/base.ts` | Add `mongodb: 27017` to `defaultPorts` |
 
-No changes to `src/types.ts` (`mongodb` already in `DB_ENGINES`), no changes
-to `package.json` (driver is lazy-imported as an optional dependency).
+No changes to:
+- `src/types.ts` — `mongodb` already in `DB_ENGINES`
+- `src/introspect/connection.ts` — MongoDB does NOT use `createConnection()`
+- `package.json` — driver is lazy-imported as an optional dependency
 
 ## Verified Edge Cases
 
 | Case | Behavior |
 |---|---|
-| Empty database (no collections) | Return database node only, no errors |
-| Database with only system collections | Return database node only |
+| Empty database (no collections) | Return schema node only, no errors |
+| Database with only system collections | Return schema node only |
 | Collection with no indexes | Return collection node, no index nodes |
 | Collection with many indexes (10+) | All included, no limit |
 | View with empty pipeline | Return view node with `signature: "[]"` |
-| TLS connection (`ssl: true`) | Pass `tls: true` to MongoClient options |
-| Auth with special chars in password | Handled by URL-encoding in `parseAuth` |
+| TLS connection (`ssl: true`) | Pass `tls: true` and `tlsAllowInvalid: false` to MongoClient |
+| Auth with special chars in password | `encodeURIComponent()` applied before URI construction |
 | Collection with complex validator | Stored as raw JSON in `metadata.validation` |
 | Capped collection | `collectionOptions.capped: true` in metadata |
 | Time-series collection | `collectionOptions.timeseries` in metadata |
+| `max` not set on capped collection | Handled gracefully (field absent from metadata) |
 
 ## Future Considerations (not in v1)
 
