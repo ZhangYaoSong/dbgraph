@@ -1,56 +1,53 @@
-# DBGraph
+﻿# DBGraph
 
 [![npm version](https://img.shields.io/npm/v/dbgraph)](https://www.npmjs.com/package/dbgraph)
 [![License](https://img.shields.io/npm/l/dbgraph)](LICENSE)
 [![Node](https://img.shields.io/node/v/dbgraph)](https://nodejs.org)
 
-数据库知识图谱 —— 将数据库 schema 提取为本地知识图谱，通过 MCP 供 LLM 理解库表结构，从而减少 SQL 生成错误。
+Database knowledge graph — Introspect database schemas into a local-first knowledge graph, exposed over MCP for LLM-powered SQL generation.
 
-## 原理
+## The Problem
 
-LLM 写 SQL 犯错的最大原因是**不知道你的库有什么**——表名靠猜、列名靠蒙、JOIN 条件靠碰运气。DBGraph 把数据库的 schema 信息（表、列、类型、外键、约束、索引）全部提取成一个**可搜索的知识图谱**存在 `.dbgraph/` 目录下，LLM 通过 MCP 工具直接查询，不直接连数据库。
+LLMs make SQL mistakes because they **don't know your schema** — guessing table names, column names, and JOIN conditions. DBGraph extracts your complete database schema (tables, columns, types, foreign keys, constraints, indexes) into a **searchable knowledge graph** stored in `.dbgraph/`. LLMs query it via MCP tools directly — no live database connection needed.
 
 ```
-传统流程:
-  LLM → 猜表名列名 → 写 SQL → 执行 → 报错 → 再猜 → 循环
+Without DBGraph:
+  LLM → guess names → write SQL → run → error → guess again → loop
 
-DBGraph 流程:
-  LLM → dbgraph_context("orders") → 拿到精确 schema
-       → 写 SQL → dbgraph_execute → 成功
+With DBGraph:
+  LLM → dbgraph_context("orders") → get exact schema
+       → write SQL → dbgraph_execute → success
 ```
 
-## 快速安装
+## Quick Install
 
 ```bash
-# 全局安装
+# Global install
 npm install -g dbgraph
 
-# 或直接用 npx（无需安装）
+# Or use directly with npx
 npx dbgraph --help
 ```
 
-## 前置要求
+## Requirements
 
-- **Node.js >= 22.5.0**（需要内置 `node:sqlite` 支持 FTS5 + WAL）
+- **Node.js >= 22.5.0** (requires built-in `node:sqlite` for FTS5 + WAL)
 
-## 快速开始
+## Quick Start
 
-> **快捷方式**: 所有命令也可用 `npm run cli -- <命令>` 替代 `node dist/bin/dbgraph.js <命令>`，会自动先执行构建。
-
-### 1. 初始化项目
+### 1. Initialize a project
 
 ```bash
-# 初始化一个项目
 dbgraph init ./demo-project
 ```
 
-这会创建：
-- `demo-project/.dbgraph/` —— 知识图谱数据目录
-- `demo-project/dbgraph-db.json` —— 数据库连接配置（默认模板）
+This creates:
+- `demo-project/.dbgraph/` — knowledge graph data directory
+- `demo-project/dbgraph-db.json` — database connection config (default template)
 
-### 2. 配置数据库连接
+### 2. Configure database connections
 
-编辑 `demo-project/dbgraph-db.json`，填入你的数据库信息：
+Edit `demo-project/dbgraph-db.json` with your database info:
 
 ```json
 {
@@ -73,121 +70,118 @@ dbgraph init ./demo-project
 }
 ```
 
-### 3. 提取 Schema
+### 3. Extract schema
 
 ```bash
 dbgraph index ./demo-project
 ```
 
-把数据库 schema 提取到知识图谱中。首次运行会连接所有配置的数据库，提取表/列/外键/索引/视图等信息。
+Introspects all configured databases and stores tables, columns, foreign keys, indexes, and views into the knowledge graph.
 
-### 4. 查询知识图谱
+### 4. Query the knowledge graph
 
 ```bash
-# 搜索表/列
-node dist/bin/dbgraph.js query orders ./demo-project
-node dist/bin/dbgraph.js query users --kind table ./demo-project
+# Search tables/columns
+dbgraph query orders ./demo-project
+dbgraph query users --kind table ./demo-project
 
-# 查看完整表结构
-node dist/bin/dbgraph.js context public.orders ./demo-project
+# View full table structure
+dbgraph context public.orders ./demo-project
 
-# 查看状态
-node dist/bin/dbgraph.js status ./demo-project
+# Check status
+dbgraph status ./demo-project
 
-# 列出数据源
-node dist/bin/dbgraph.js sources ./demo-project
+# List data sources
+dbgraph sources ./demo-project
 ```
 
-## 配置说明
+## Configuration
 
 ### `dbgraph-db.json`
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `alias` | string | 是 | 数据库别名，在知识图谱中用 `db://@alias` 标识 |
-| `engine` | string | 是 | 数据库引擎：`postgresql` / `mysql` / `mariadb` / `sqlite` |
-| `host` | string | 否 | 主机地址（SQLite 不需要）|
-| `port` | number | 否 | 端口（默认根据引擎判断）|
-| `database` | string | 是(非SQLite) | 数据库名 |
-| `schemas` | string[] | 否 | 要提取的 schema 列表（默认全部）|
-| `path` | string | 是(SQLite) | SQLite 文件路径 |
-| `auth` | string | 否 | 认证方式，如 `env:DB_PASSWORD`（环境变量）、`~/.pgpass` |
-| `ssl` | boolean | 否 | 是否启用 SSL 连接 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `alias` | string | yes | Database alias, identified as `db://@alias` in the graph |
+| `engine` | string | yes | Database engine: `postgresql` / `mysql` / `mariadb` / `sqlite` |
+| `host` | string | no | Host address (not needed for SQLite) |
+| `port` | number | no | Port (default depends on engine) |
+| `database` | string | yes (non-SQLite) | Database name |
+| `schemas` | string[] | no | Schemas to introspect (default: all) |
+| `path` | string | yes (SQLite) | SQLite file path |
+| `auth` | string | no | Authentication, e.g. `env:DB_PASSWORD` or `~/.pgpass` |
+| `ssl` | boolean | no | Enable SSL connection |
 
-## CLI 命令参考
+## CLI Reference
 
-所有命令格式：
-```
-node dist/bin/dbgraph.js <命令> [选项] [目录参数]
-```
+All commands follow: `dbgraph <command> [options] [directory]`
 
-| 命令 | 说明 |
-|------|------|
-| `init` | 初始化 .dbgraph 项目 + 配置 |
-| `index` | 运行数据库内省，提取 schema |
-| `serve` | 启动 MCP 服务器（供 AI Agent 使用）|
-| `query` | 搜索表/列/视图 |
-| `context` | 查看完整表结构 |
-| `status` | 知识图谱状态统计 |
-| `sources` | 列出数据源 |
-| `test` | 测试数据库连接 |
-| `config` | 查看/创建配置 |
+| Command | Description |
+|---------|-------------|
+| `init` | Initialize .dbgraph project + config |
+| `index` | Run database introspection |
+| `serve` | Start MCP server (for AI agents) |
+| `query` | Search tables/columns/views |
+| `context` | View full table structure |
+| `status` | Knowledge graph statistics |
+| `sources` | List data sources |
+| `test` | Test database connections |
+| `config` | View/create configuration |
 
 ### `init`
 
 ```bash
-# 初始化项目
-node dist/bin/dbgraph.js init ./my-project
+# Initialize a project
+dbgraph init ./my-project
 
-# 初始化后立即索引
-node dist/bin/dbgraph.js init ./my-project --index
+# Init and index immediately
+dbgraph init ./my-project --index
 
-# 指定配置文件路径
-node dist/bin/dbgraph.js init ./my-project -c ./my-project/custom-config.json
+# Specify config file path
+dbgraph init ./my-project -c ./my-project/custom-config.json
 ```
 
 ### `index`
 
 ```bash
-# 索引指定项目配置的数据库
-node dist/bin/dbgraph.js index ./my-project
+# Index configured databases
+dbgraph index ./my-project
 
-# 指定配置文件
-node dist/bin/dbgraph.js index ./my-project -c ./my-project/custom-config.json
+# Use a specific config file
+dbgraph index ./my-project -c ./my-project/custom-config.json
 ```
 
-### `serve`（MCP 模式）
+### `serve` (MCP mode)
 
 ```bash
-# 启动 MCP stdio 服务器
-node dist/bin/dbgraph.js serve ./my-project
+# Start MCP stdio server
+dbgraph serve ./my-project
 ```
 
-AI Agent 连接到 MCP 后自动发现 `dbgraph_*` 工具。
+AI agents automatically discover `dbgraph_*` tools upon connecting to MCP.
 
 ### `query`
 
 ```bash
-# 搜索
-node dist/bin/dbgraph.js query orders ./my-project
+# Search
+dbgraph query orders ./my-project
 
-# 按类型过滤
-node dist/bin/dbgraph.js query orders --kind table ./my-project
-node dist/bin/dbgraph.js query amount --kind column ./my-project
+# Filter by kind
+dbgraph query orders --kind table ./my-project
+dbgraph query amount --kind column ./my-project
 
-# JSON 格式输出
-node dist/bin/dbgraph.js query orders --json ./my-project
+# JSON output
+dbgraph query orders --json ./my-project
 ```
 
 ### `context`
 
 ```bash
-# 查看表结构
-node dist/bin/dbgraph.js context orders ./my-project
-node dist/bin/dbgraph.js context public.orders ./my-project
+# View table structure
+dbgraph context orders ./my-project
+dbgraph context public.orders ./my-project
 ```
 
-输出示例：
+Example output:
 ```
 ## Table: public.orders
 
@@ -209,138 +203,135 @@ Foreign Keys:
   - fk_orders_user → users(id) ON DELETE CASCADE
 ```
 
-## MCP 工具
+## MCP Tools
 
-启动 `dbgraph serve` 后，AI Agent 可以调用以下工具：
+After starting `dbgraph serve`, AI agents can call these tools:
 
-| 工具 | 用途 | 推荐时机 |
-|------|------|---------|
-| `dbgraph_search` | 搜索表/列/视图/索引 | 不确定名字时 |
-| `dbgraph_context` | **主要入口** —— 返回完整表结构 + 列 + FK + 索引 | 写 SQL 前 |
-| `dbgraph_trace` | 追踪 FK 关联路径（orders→users） | 需要写 JOIN 时 |
-| `dbgraph_explore` | 一次性探索多张相关表 | 复杂查询涉及多表时 |
-| `dbgraph_sources` | 列出所有已配置的数据库源 | 了解有哪些库可用 |
-| `dbgraph_status` | 知识图谱统计 | 检查是否已索引 |
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| `dbgraph_search` | Search tables/columns/views/indexes | When unsure about names |
+| `dbgraph_context` | **Primary entry** — full table schema + columns + FKs + indexes | Before writing SQL |
+| `dbgraph_trace` | Trace FK join paths (orders→users) | Before writing JOINs |
+| `dbgraph_explore` | Explore multiple related tables at once | Complex multi-table queries |
+| `dbgraph_sources` | List all configured database sources | Learn what databases are available |
+| `dbgraph_status` | Knowledge graph statistics | Verify the graph is healthy |
 
-### 推荐工具调用策略
+### Recommended workflow
 
 ```
-写 SQL 前的标准流程:
-1. dbgraph_search("order")        → 找到 order 相关表
-2. dbgraph_context("public.orders") → 获取完整 schema
-3. dbgraph_context("public.users")   → 获取关联表 schema
-4. dbgraph_trace("orders", "users")  → 验证 FK 关联
-5. LLM 写出精确 SQL
+Standard pre-SQL flow:
+1. dbgraph_search("order")        → find relevant tables
+2. dbgraph_context("public.orders") → get full schema
+3. dbgraph_context("public.users")   → get related table schema
+4. dbgraph_trace("orders", "users")  → verify FK paths
+5. LLM writes precise SQL
 ```
 
-## 支持引擎
+## Supported Engines
 
-| 引擎 | 状态 | 说明 |
-|------|------|------|
-| PostgreSQL | ✅ 完整支持 | `information_schema` + `pg_catalog` |
-| MySQL / MariaDB | ✅ 完整支持 | `information_schema` |
-| SQLite | ✅ 完整支持 | `pragma table_info` / `foreign_key_list` |
-| SQL Server | 🔜 计划中 | |
-| Oracle | 🔜 计划中 | |
-| MongoDB | 🔜 计划中 | |
+| Engine | Status | Details |
+|--------|--------|---------|
+| PostgreSQL | ✅ Full | `information_schema` + `pg_catalog` |
+| MySQL / MariaDB | ✅ Full | `information_schema` |
+| SQLite | ✅ Full | `pragma table_info` / `foreign_key_list` |
+| SQL Server | 🔜 Planned | |
+| Oracle | 🔜 Planned | |
+| MongoDB | 🔜 Planned | |
 
-## 项目结构
+## Project Structure
 
 ```
 dbgraph/
 ├── src/
-│   ├── index.ts                        # DBGraph 主类
-│   ├── types.ts                        # 所有类型 (Node, Edge, TableSchema...)
-│   ├── config.ts                       # dbgraph-db.json 配置管理
-│   ├── directory.ts                    # .dbgraph 目录管理
-│   ├── errors.ts                       # 错误类型
-│   ├── utils.ts                        # 工具函数
+│   ├── index.ts                        # DBGraph main class
+│   ├── types.ts                        # All types (Node, Edge, TableSchema...)
+│   ├── config.ts                       # dbgraph-db.json config management
+│   ├── directory.ts                    # .dbgraph directory management
+│   ├── errors.ts                       # Error types
+│   ├── utils.ts                        # Utility functions
 │   │
-│   ├── db/                             # SQLite 存储层
-│   │   ├── schema.sql                  # 表结构 (nodes/edges FTS5)
-│   │   ├── sqlite-adapter.ts           # node:sqlite 适配
-│   │   ├── migrations.ts               # 版本迁移
-│   │   ├── queries.ts                  # CRUD + FTS5 搜索 + 评分 (LRU缓存)
-│   │   └── index.ts                    # 连接管理
+│   ├── db/                             # SQLite storage layer
+│   │   ├── schema.sql                  # Table schema (nodes/edges FTS5)
+│   │   ├── sqlite-adapter.ts           # node:sqlite adapter
+│   │   ├── migrations.ts               # Version migrations
+│   │   ├── queries.ts                  # CRUD + FTS5 search + scoring (LRU cache)
+│   │   └── index.ts                    # Connection management
 │   │
 │   ├── graph/
-│   │   └── traversal.ts                # BFS/DFS/寻路/影响半径
+│   │   └── traversal.ts                # BFS/DFS/pathfinding/impact radius
 │   │
 │   ├── context/
-│   │   ├── index.ts                    # 表结构组装
-│   │   └── formatter.ts                # Markdown 输出
+│   │   ├── index.ts                    # Table context assembly
+│   │   └── formatter.ts                # Markdown output
 │   │
-│   ├── introspect/                     # 数据库内省
-│   │   ├── base.ts                     # 基类 + Node/Edge 工厂
-│   │   ├── index.ts                    # 工厂方法
-│   │   ├── connection.ts               # 连接管理
+│   ├── introspect/                     # Database introspection
+│   │   ├── base.ts                     # Base class + Node/Edge factory
+│   │   ├── index.ts                    # Factory method
+│   │   ├── connection.ts               # Connection management
 │   │   ├── postgres.ts                 # PostgreSQL
 │   │   ├── mysql.ts                    # MySQL
 │   │   └── sqlite.ts                   # SQLite
 │   │
-│   ├── mcp/                            # MCP 服务器
-│   │   ├── transport.ts                # JSON-RPC 传输
-│   │   ├── session.ts                  # 会话管理
-│   │   ├── engine.ts                   # 引擎 + 生命周期
-│   │   ├── tools.ts                    # 6 个 dbgraph_* 工具
-│   │   ├── server-instructions.ts      # LLM 指引
+│   ├── mcp/                            # MCP server
+│   │   ├── transport.ts                # JSON-RPC transport
+│   │   ├── session.ts                  # Session management
+│   │   ├── engine.ts                   # Engine + lifecycle
+│   │   ├── tools.ts                    # 6 dbgraph_* tools
+│   │   ├── server-instructions.ts      # LLM instructions
 │   │   └── index.ts                    # MCPServer
 │   │
 │   └── bin/
 │       └── dbgraph.ts                  # CLI
 ```
 
-## 开发
+## Development
 
 ```bash
-# 安装依赖
+# Install dependencies
 npm install
 
-# 构建
+# Build
 npm run build
 
-# 开发模式（watch）
+# Development mode (watch)
 npm run dev
 
-# 运行帮助
-node dist/bin/dbgraph.js --help
-
-# 快速构建 + 运行（等价于 build 后执行 node dist/bin/dbgraph.js）
+# Quick build + run
 npm run cli -- status ./my-project
 ```
 
-### 添加新数据库引擎
+### Adding a new database engine
 
-在 `src/introspect/` 下创建新文件（如 `mssql.ts`），实现 `BaseIntrospector` 抽象类：
+Create a new file in `src/introspect/` (e.g. `mssql.ts`) implementing `BaseIntrospector`:
 
 ```typescript
 import { BaseIntrospector } from './base';
 
 export class MSSQLIntrospector extends BaseIntrospector {
   async extractAll(): Promise<IntrospectResult> {
-    // 1. 连接数据库
-    // 2. 查询 information_schema
-    // 3. 调用 this.makeNode() / this.makeEdge()
-    // 4. 返回 IntrospectResult
+    // 1. Connect to database
+    // 2. Query information_schema
+    // 3. Call this.makeNode() / this.makeEdge()
+    // 4. Return IntrospectResult
   }
 }
 ```
 
-然后在 `src/introspect/index.ts` 中注册：
+Then register it in `src/introspect/index.ts`:
 
 ```typescript
 case 'mssql':
   return new MSSQLIntrospector(config);
 ```
 
-## 参考
+## References
 
-- **[AGENTS.md](AGENTS.md)** — OpenCode AI Agent 的项目指引，包含开发命令速查、架构要点和 CodeGraph 使用说明。
-- **CodeGraph** — 本项目已初始化 CodeGraph 索引（`.codegraph/`），Agent 可优先使用 `codegraph_*` 工具进行结构查询，速度远超 grep。
+- **[AGENTS.md](AGENTS.md)** — OpenCode AI Agent project guide with dev commands and architecture overview
+- **CodeGraph** — This project uses CodeGraph indexing (`.codegraph/`) for fast structural queries
 
-## 鸣谢
+## Acknowledgments
 
-DBGraph 的架构和 MCP 设计受到了 [CodeGraph](https://github.com/colbymchenry/codegraph) 的启发。CodeGraph 是一个优秀的代码知识图谱工具，将代码库结构提取为可查询的知识图谱，本项目借鉴了其思路并将其应用于数据库 schema 领域。
+DBGraph\'s architecture and MCP design were inspired by [CodeGraph](https://github.com/colbymchenry/codegraph), an excellent code knowledge graph tool that extracts codebase structure into a queryable graph. This project adapts those ideas to the database schema domain.
 
 ## License
 
