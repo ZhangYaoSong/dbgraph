@@ -1,14 +1,51 @@
-﻿# DBGraph
+﻿<div align="center">
+
+# DBGraph
+
+### Database Knowledge Graph — Introspect schemas into a searchable graph, expose over MCP for AI agents
+
+**Zero-guess SQL generation · Sub-millisecond schema lookups · 100% local**
 
 [![npm version](https://img.shields.io/npm/v/dbgraph)](https://www.npmjs.com/package/dbgraph)
-[![License](https://img.shields.io/npm/l/dbgraph)](LICENSE)
-[![Node](https://img.shields.io/node/v/dbgraph)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/Node.js-%3E%3D22.5-brightgreen)](https://nodejs.org/)
 
-Database knowledge graph — Introspect database schemas into a local-first knowledge graph, exposed over MCP for LLM-powered SQL generation.
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-supported-blue)](#supported-engines)
+[![MySQL](https://img.shields.io/badge/MySQL-supported-blue)](#supported-engines)
+[![SQLite](https://img.shields.io/badge/SQLite-supported-blue)](#supported-engines)
 
-## The Problem
+</div>
 
-LLMs make SQL mistakes because they **don't know your schema** — guessing table names, column names, and JOIN conditions. DBGraph extracts your complete database schema (tables, columns, types, foreign keys, constraints, indexes) into a **searchable knowledge graph** stored in `.dbgraph/`. LLMs query it via MCP tools directly — no live database connection needed.
+## Get Started
+
+```bash
+# Zero-install (recommended)
+npx dbgraph
+
+# Or install globally
+npm i -g dbgraph
+```
+
+### Initialize a project
+
+```bash
+cd your-project
+npx dbgraph init -i       # init + index in one step
+```
+
+<sub>`dbgraph init` creates `.dbgraph/` and a default `dbgraph-db.json` config. Adding `-i` (`--index`) also introspects your databases immediately. Edit `dbgraph-db.json` first to configure your connections.</sub>
+
+### Start the MCP server
+
+```bash
+npx dbgraph serve
+```
+
+AI agents connected to MCP automatically discover `dbgraph_*` tools for schema-aware SQL generation.
+
+## Why DBGraph?
+
+LLMs write wrong SQL because they **don't know your schema** — guessing table names, column names, and JOIN conditions. DBGraph extracts your complete database schema (tables, columns, types, foreign keys, constraints, indexes) into a **searchable knowledge graph** stored in `.dbgraph/`. AI agents query it via MCP tools directly — no live database connection needed.
 
 ```
 Without DBGraph:
@@ -16,47 +53,48 @@ Without DBGraph:
 
 With DBGraph:
   LLM → dbgraph_context("orders") → get exact schema
-       → write SQL → dbgraph_execute → success
+       → write SQL → success
 ```
 
-## Quick Install
+## CLI Reference
+
+| Command | Description |
+|---------|-------------|
+| `init` | Initialize `.dbgraph` project (`-i` to index immediately) |
+| `index` | Run database introspection |
+| `serve` | Start MCP server (use `--auto-refresh` to watch for schema changes) |
+| `query` | Search tables, columns, views, indexes |
+| `context` | View full table schema (call before writing SQL) |
+| `trace` | Trace foreign key join paths between tables |
+| `explore` | Explore multiple related tables at once |
+| `sources` | List configured database sources |
+| `status` | Knowledge graph statistics |
+| `test` | Test database connections |
+| `config` | View or create configuration |
+
+All commands default to the current directory. Pass a directory path to target another project:
 
 ```bash
-# Global install
-npm install -g dbgraph
-
-# Or use directly with npx
-npx dbgraph --help
+npx dbgraph status                  # current directory
+npx dbgraph status ./other-project  # another project
 ```
 
-## Requirements
+## MCP Tools
 
-- **Node.js >= 22.5.0** (requires built-in `node:sqlite` for FTS5 + WAL)
+After starting `dbgraph serve`, AI agents can call:
 
-## Quick Start
+| Tool | Purpose |
+|------|---------|
+| `dbgraph_search` | Search schema objects by name |
+| `dbgraph_context` | **Full table schema** — columns, types, PKs, FKs, indexes |
+| `dbgraph_trace` | Trace FK join paths (orders → users) |
+| `dbgraph_explore` | Batch schema for multiple tables |
+| `dbgraph_sources` | List all database sources |
+| `dbgraph_status` | Graph health and statistics |
 
-All commands default to the current directory. Pass a directory path to target another project.
+## Configuration
 
-### 1. Initialize a project
-
-```bash
-# Initialize current directory
-dbgraph init
-
-# Or initialize + index in one step
-dbgraph init -i
-
-# Or target a specific directory
-dbgraph init ./demo-project
-```
-
-This creates:
-- `.dbgraph/` — knowledge graph data directory
-- `dbgraph-db.json` — database connection config (default template)
-
-### 2. Configure database connections
-
-Edit `dbgraph-db.json` with your database info:
+Edit `dbgraph-db.json` in your project root:
 
 ```json
 {
@@ -79,274 +117,42 @@ Edit `dbgraph-db.json` with your database info:
 }
 ```
 
-### 3. Extract schema
-
-```bash
-dbgraph index
-```
-
-Introspects all configured databases and stores tables, columns, foreign keys, indexes, and views into the knowledge graph.
-
-### 4. Query the knowledge graph
-
-```bash
-# Search tables/columns
-dbgraph query orders
-dbgraph query users --kind table
-
-# View full table structure
-dbgraph context public.orders
-
-# Check status
-dbgraph status
-
-# List data sources
-dbgraph sources
-```
-
-## Configuration
-
-### `dbgraph-db.json`
-
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `alias` | string | yes | Database alias, identified as `db://@alias` in the graph |
-| `engine` | string | yes | Database engine: `postgresql` / `mysql` / `mariadb` / `sqlite` |
-| `host` | string | no | Host address (not needed for SQLite) |
+| `alias` | string | yes | Database alias (`db://@alias` in graph) |
+| `engine` | string | yes | `postgresql` / `mysql` / `mariadb` / `sqlite` |
+| `host` | string | no | Host address |
 | `port` | number | no | Port (default depends on engine) |
-| `database` | string | yes (non-SQLite) | Database name |
+| `database` | string | depends | Required for PostgreSQL/MySQL |
 | `schemas` | string[] | no | Schemas to introspect (default: all) |
-| `path` | string | yes (SQLite) | SQLite file path |
-| `auth` | string | no | Authentication, e.g. `env:DB_PASSWORD` or `~/.pgpass` |
-| `ssl` | boolean | no | Enable SSL connection |
-
-## CLI Reference
-
-All commands follow: `dbgraph <command> [options] [directory]`
-
-| Command | Description |
-|---------|-------------|
-| `init` | Initialize .dbgraph project + config |
-| `index` | Run database introspection |
-| `serve` | Start MCP server (for AI agents) |
-| `query` | Search tables/columns/views |
-| `context` | View full table structure |
-| `status` | Knowledge graph statistics |
-| `sources` | List data sources |
-| `test` | Test database connections |
-| `config` | View/create configuration |
-
-### `init`
-
-```bash
-# Initialize current directory
-dbgraph init
-
-# Init and index immediately
-dbgraph init -i
-
-# Initialize a specific directory
-dbgraph init ./my-project
-
-# Specify config file path
-dbgraph init ./my-project -c ./my-project/custom-config.json
-```
-
-### `index`
-
-```bash
-# Index configured databases (current dir)
-dbgraph index
-
-# Use a specific config file
-dbgraph index ./my-project -c ./my-project/custom-config.json
-```
-
-### `serve` (MCP mode)
-
-```bash
-# Start MCP stdio server (current dir)
-dbgraph serve
-
-# Start for a specific project directory
-dbgraph serve ./my-project
-```
-
-AI agents automatically discover `dbgraph_*` tools upon connecting to MCP.
-
-### `query`
-
-```bash
-# Search
-dbgraph query orders ./my-project
-
-# Filter by kind
-dbgraph query orders --kind table ./my-project
-dbgraph query amount --kind column ./my-project
-
-# JSON output
-dbgraph query orders --json ./my-project
-```
-
-### `context`
-
-```bash
-# View table structure
-dbgraph context orders ./my-project
-dbgraph context public.orders ./my-project
-```
-
-Example output:
-```
-## Table: public.orders
-
-Database: prod (postgresql)
-
-| Column       | Type         | Nullable | Default  | PK | FK        |
-|-------------|-------------|----------|----------|----|-----------|
-| id          | bigint       | NO       |          | PK |           |
-| user_id     | integer      | NO       |          |    | users.id  |
-| status      | varchar(20)  | NO       | pending  |    |           |
-| total_amount| numeric(10,2)| YES      | 0.00     |    |           |
-| created_at  | timestamp    | NO       | now()    |    |           |
-
-Indexes:
-  - idx_orders_status on (status)
-  - pk_orders PRIMARY KEY using btree (id)
-
-Foreign Keys:
-  - fk_orders_user → users(id) ON DELETE CASCADE
-```
-
-## MCP Tools
-
-After starting `dbgraph serve`, AI agents can call these tools:
-
-| Tool | Purpose | When to use |
-|------|---------|-------------|
-| `dbgraph_search` | Search tables/columns/views/indexes | When unsure about names |
-| `dbgraph_context` | **Primary entry** — full table schema + columns + FKs + indexes | Before writing SQL |
-| `dbgraph_trace` | Trace FK join paths (orders→users) | Before writing JOINs |
-| `dbgraph_explore` | Explore multiple related tables at once | Complex multi-table queries |
-| `dbgraph_sources` | List all configured database sources | Learn what databases are available |
-| `dbgraph_status` | Knowledge graph statistics | Verify the graph is healthy |
-
-### Recommended workflow
-
-```
-Standard pre-SQL flow:
-1. dbgraph_search("order")        → find relevant tables
-2. dbgraph_context("public.orders") → get full schema
-3. dbgraph_context("public.users")   → get related table schema
-4. dbgraph_trace("orders", "users")  → verify FK paths
-5. LLM writes precise SQL
-```
+| `path` | string | depends | Required for SQLite |
+| `auth` | string | no | `env:VAR_NAME` or `~/.pgpass` |
+| `ssl` | boolean | no | Enable SSL |
 
 ## Supported Engines
 
-| Engine | Status | Details |
-|--------|--------|---------|
-| PostgreSQL | ✅ Full | `information_schema` + `pg_catalog` |
-| MySQL / MariaDB | ✅ Full | `information_schema` |
-| SQLite | ✅ Full | `pragma table_info` / `foreign_key_list` |
-| SQL Server | 🔜 Planned | |
-| Oracle | 🔜 Planned | |
-| MongoDB | 🔜 Planned | |
-
-## Project Structure
-
-```
-dbgraph/
-├── src/
-│   ├── index.ts                        # DBGraph main class
-│   ├── types.ts                        # All types (Node, Edge, TableSchema...)
-│   ├── config.ts                       # dbgraph-db.json config management
-│   ├── directory.ts                    # .dbgraph directory management
-│   ├── errors.ts                       # Error types
-│   ├── utils.ts                        # Utility functions
-│   │
-│   ├── db/                             # SQLite storage layer
-│   │   ├── schema.sql                  # Table schema (nodes/edges FTS5)
-│   │   ├── sqlite-adapter.ts           # node:sqlite adapter
-│   │   ├── migrations.ts               # Version migrations
-│   │   ├── queries.ts                  # CRUD + FTS5 search + scoring (LRU cache)
-│   │   └── index.ts                    # Connection management
-│   │
-│   ├── graph/
-│   │   └── traversal.ts                # BFS/DFS/pathfinding/impact radius
-│   │
-│   ├── context/
-│   │   ├── index.ts                    # Table context assembly
-│   │   └── formatter.ts                # Markdown output
-│   │
-│   ├── introspect/                     # Database introspection
-│   │   ├── base.ts                     # Base class + Node/Edge factory
-│   │   ├── index.ts                    # Factory method
-│   │   ├── connection.ts               # Connection management
-│   │   ├── postgres.ts                 # PostgreSQL
-│   │   ├── mysql.ts                    # MySQL
-│   │   └── sqlite.ts                   # SQLite
-│   │
-│   ├── mcp/                            # MCP server
-│   │   ├── transport.ts                # JSON-RPC transport
-│   │   ├── session.ts                  # Session management
-│   │   ├── engine.ts                   # Engine + lifecycle
-│   │   ├── tools.ts                    # 6 dbgraph_* tools
-│   │   ├── server-instructions.ts      # LLM instructions
-│   │   └── index.ts                    # MCPServer
-│   │
-│   └── bin/
-│       └── dbgraph.ts                  # CLI
-```
+| Engine | Status |
+|--------|--------|
+| PostgreSQL | ✅ Full support |
+| MySQL / MariaDB | ✅ Full support |
+| SQLite | ✅ Full support |
+| SQL Server | 🔜 Planned |
+| Oracle | 🔜 Planned |
 
 ## Development
 
 ```bash
-# Install dependencies
+git clone https://github.com/ZhangYaoSong/dbgraph.git
+cd dbgraph
 npm install
-
-# Build
 npm run build
-
-# Development mode (watch)
-npm run dev
-
-# Quick build + run
-npm run cli -- status ./my-project
+npm run cli -- init -i   # init current dir + index
+npm run cli -- serve      # start MCP server from source
 ```
-
-### Adding a new database engine
-
-Create a new file in `src/introspect/` (e.g. `mssql.ts`) implementing `BaseIntrospector`:
-
-```typescript
-import { BaseIntrospector } from './base';
-
-export class MSSQLIntrospector extends BaseIntrospector {
-  async extractAll(): Promise<IntrospectResult> {
-    // 1. Connect to database
-    // 2. Query information_schema
-    // 3. Call this.makeNode() / this.makeEdge()
-    // 4. Return IntrospectResult
-  }
-}
-```
-
-Then register it in `src/introspect/index.ts`:
-
-```typescript
-case 'mssql':
-  return new MSSQLIntrospector(config);
-```
-
-## References
-
-- **[AGENTS.md](AGENTS.md)** — OpenCode AI Agent project guide with dev commands and architecture overview
-- **CodeGraph** — This project uses CodeGraph indexing (`.codegraph/`) for fast structural queries
 
 ## Acknowledgments
 
-DBGraph\'s architecture and MCP design were inspired by [CodeGraph](https://github.com/colbymchenry/codegraph), an excellent code knowledge graph tool that extracts codebase structure into a queryable graph. This project adapts those ideas to the database schema domain.
+Inspired by [CodeGraph](https://github.com/colbymchenry/codegraph) — an excellent code knowledge graph tool that this project adapts to the database schema domain.
 
 ## License
 
