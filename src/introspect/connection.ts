@@ -24,7 +24,7 @@ export interface DBConnection {
 // Helpers
 // =============================================================================
 
-function parseAuth(auth?: string): { user?: string; password?: string } {
+export function parseAuth(auth?: string): { user?: string; password?: string } {
   if (!auth || auth.length === 0) return {};
   const idx = auth.indexOf(':');
   if (idx === -1) return { user: auth };
