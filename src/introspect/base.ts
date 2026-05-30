@@ -74,6 +74,7 @@ export abstract class BaseIntrospector implements Introspector {
       mysql: 3306,
       mariadb: 3306,
       mssql: 1433,
+      mongodb: 27017,
     };
     const defaultPort = defaultPorts[this.config.engine] ?? 3306;
     const p = this.config.port || defaultPort;
