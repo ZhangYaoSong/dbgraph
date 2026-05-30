@@ -264,6 +264,13 @@ try {
   /* handled at connect() time */
 }
 
+let msnodesqlModule: any;
+try {
+  msnodesqlModule = require('mssql/msnodesqlv8');
+} catch {
+  /* handled at connect() time */
+}
+
 class MSSQLConnection implements DBConnection {
   private pool: any;
 
@@ -272,6 +279,47 @@ class MSSQLConnection implements DBConnection {
   }
 
   static async create(config: DbConnectionConfig): Promise<MSSQLConnection> {
+    if (config.authType === 'integrated') {
+      // Windows Integrated Authentication — uses current Windows user
+      if (!msnodesqlModule) {
+        throw new ConnectionError(
+          `msnodesqlv8 package is not installed.\n` +
+          `Windows Integrated Auth requires: npm install msnodesqlv8`,
+          config.alias,
+        );
+      }
+
+      const mssqlConfig: any = {
+        server: config.host || 'localhost',
+        port: config.port || 1433,
+        database: config.database,
+        options: {
+          trustedConnection: true,
+          encrypt: config.ssl || false,
+          trustServerCertificate: config.ssl || false,
+        },
+        connectionTimeout: 10_000,
+        pool: {
+          max: 2,
+          min: 0,
+          idleTimeoutMillis: 30_000,
+        },
+      };
+
+      try {
+        const pool = new msnodesqlModule.ConnectionPool(mssqlConfig);
+        await pool.connect();
+        return new MSSQLConnection(pool);
+      } catch (err: any) {
+        throw new ConnectionError(
+          `Failed to connect to MSSQL at ${config.host || 'localhost'}:${config.port || 1433}/${config.database}: ${err.message}`,
+          config.alias,
+          err,
+        );
+      }
+    }
+
+    // Default: SQL Server authentication (user/password)
     if (!mssqlModule) {
       throw new ConnectionError(
         `mssql package is not installed.\n` +
