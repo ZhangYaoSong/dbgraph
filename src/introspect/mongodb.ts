@@ -133,8 +133,8 @@ export class MongoDBIntrospector extends BaseIntrospector {
         // Gather indexes and document count for this collection
         let indexes: any[] = [];
         let docCount: number | undefined;
+        const mongoColl = db.collection(collName);
         try {
-          const mongoColl = db.collection(collName);
           indexes = await mongoColl.indexes();
         } catch (err: any) {
           errors.push(
@@ -142,7 +142,6 @@ export class MongoDBIntrospector extends BaseIntrospector {
           );
         }
         try {
-          const mongoColl = db.collection(collName);
           // estimatedDocumentCount() — fast metadata read.
           // NOTE: on sharded clusters this may be approximate.
           docCount = await mongoColl.estimatedDocumentCount();
@@ -157,7 +156,11 @@ export class MongoDBIntrospector extends BaseIntrospector {
         const validator = collOptions.validator;
         const validationSchema =
           validator && validator.$jsonSchema
-            ? { $jsonSchema: validator.$jsonSchema }
+            ? {
+                $jsonSchema: validator.$jsonSchema,
+                ...(collOptions.validationAction ? { validationAction: collOptions.validationAction } : {}),
+                ...(collOptions.validationLevel ? { validationLevel: collOptions.validationLevel } : {}),
+              }
             : undefined;
 
         const collNode = this.makeNode(
@@ -307,7 +310,7 @@ export class MongoDBIntrospector extends BaseIntrospector {
     const uri = this.buildUri();
     return mongodb.MongoClient.connect(uri, {
       tls: this.config.ssl ?? false,
-      tlsAllowInvalidCertificates: false,
+      tlsAllowInvalidCertificates: this.config.tlsInsecure ?? false,
       connectTimeoutMS: 10_000,
       serverSelectionTimeoutMS: 10_000,
     });
