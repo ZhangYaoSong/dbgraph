@@ -340,7 +340,7 @@ case 'mssql':
 
 ## 鸣谢
 
-DBGraph 的架构和 MCP 设计受到了 [CodeGraph](https://github.com/opencode-ai/codegraph) 的启发。CodeGraph 是一个优秀的代码知识图谱工具，将代码库结构提取为可查询的知识图谱，本项目借鉴了其思路并将其应用于数据库 schema 领域。
+DBGraph 的架构和 MCP 设计受到了 [CodeGraph](https://github.com/colbymchenry/codegraph) 的启发。CodeGraph 是一个优秀的代码知识图谱工具，将代码库结构提取为可查询的知识图谱，本项目借鉴了其思路并将其应用于数据库 schema 领域。
 
 ## License
 
