@@ -83,3 +83,8 @@ This project has a CodeGraph index (`.codegraph/`). Prefer codegraph tools over 
 - `codegraph_search` — Find symbol definitions by name
 - `codegraph_explore` — View source of multiple related symbols at once
 - `codegraph_impact` — Analyze how changes affect other code
+
+## TODO
+
+- [ ] **MSSQL Windows Auth** — Add support for Windows integrated security / Azure AD authentication in `MSSQLConnection` (`connection.ts`)
+- [ ] **`schemas: []` behavior** — Empty `schemas` array currently introspects all schemas (matches no-filter behavior). Decide: treat as "introspect nothing" or keep as "no filter"
