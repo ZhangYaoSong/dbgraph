@@ -9,12 +9,14 @@
  *  - PostgresIntrospector  (postgres.ts)
  *  - MySQLIntrospector     (mysql.ts)
  *  - SQLiteIntrospector    (sqlite.ts)
+ *  - MSSQLIntrospector     (mssql.ts)
  */
 
 import { DbConnectionConfig } from '../types';
 import { PostgresIntrospector } from './postgres';
 import { MySQLIntrospector } from './mysql';
 import { SQLiteIntrospector } from './sqlite';
+import { MSSQLIntrospector } from './mssql';
 import { Introspector, BaseIntrospector } from './base';
 
 // Re-export base types
@@ -39,10 +41,12 @@ export function createIntrospector(config: DbConnectionConfig): Introspector {
       return new MySQLIntrospector(config);
     case 'sqlite':
       return new SQLiteIntrospector(config);
+    case 'mssql':
+      return new MSSQLIntrospector(config);
     default:
       throw new Error(
         `Unsupported database engine: "${config.engine}". ` +
-        `Supported engines: postgresql, mysql, mariadb, sqlite`,
+        `Supported engines: postgresql, mysql, mariadb, sqlite, mssql`,
       );
   }
 }

@@ -69,7 +69,13 @@ export abstract class BaseIntrospector implements Introspector {
       return `${this.config.engine}:${this.config.path}`;
     }
     const h = this.config.host || 'localhost';
-    const defaultPort = this.config.engine === 'postgresql' ? 5432 : 3306;
+    const defaultPorts: Record<string, number> = {
+      postgresql: 5432,
+      mysql: 3306,
+      mariadb: 3306,
+      mssql: 1433,
+    };
+    const defaultPort = defaultPorts[this.config.engine] ?? 3306;
     const p = this.config.port || defaultPort;
     return `${this.config.engine}://${h}:${p}/${this.config.database}`;
   }

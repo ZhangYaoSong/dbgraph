@@ -254,6 +254,96 @@ class SQLiteConnection implements DBConnection {
 }
 
 // =============================================================================
+// MSSQL Connection (mssql — wraps tedious)
+// =============================================================================
+
+let mssqlModule: any;
+try {
+  mssqlModule = require('mssql');
+} catch {
+  /* handled at connect() time */
+}
+
+class MSSQLConnection implements DBConnection {
+  private pool: any;
+
+  private constructor(pool: any) {
+    this.pool = pool;
+  }
+
+  static async create(config: DbConnectionConfig): Promise<MSSQLConnection> {
+    if (!mssqlModule) {
+      throw new ConnectionError(
+        `mssql package is not installed.\n` +
+        `Connect to ${config.alias} (${config.engine}) by running: npm install mssql`,
+        config.alias,
+      );
+    }
+
+    const auth = parseAuth(config.auth);
+    const mssqlConfig: any = {
+      server: config.host || 'localhost',
+      port: config.port || 1433,
+      database: config.database,
+      user: auth.user,
+      password: auth.password,
+      options: {
+        encrypt: config.ssl || false,
+        trustServerCertificate: config.ssl || false,
+      },
+      connectionTimeout: 10_000,
+      pool: {
+        max: 2,
+        min: 0,
+        idleTimeoutMillis: 30_000,
+      },
+    };
+
+    try {
+      const pool = new mssqlModule.ConnectionPool(mssqlConfig);
+      await pool.connect();
+      return new MSSQLConnection(pool);
+    } catch (err: any) {
+      throw new ConnectionError(
+        `Failed to connect to MSSQL at ${config.host || 'localhost'}:${config.port || 1433}/${config.database}: ${err.message}`,
+        config.alias,
+        err,
+      );
+    }
+  }
+
+  async query(sql: string, params?: any[]): Promise<any[]> {
+    try {
+      const request = this.pool.request();
+      if (params) {
+        let idx = 0;
+        // Convert ? placeholders to @p0, @p1, ... named params
+        sql = sql.replace(/\?/g, () => `@p${idx++}`);
+        for (let i = 0; i < params.length; i++) {
+          request.input(`p${i}`, params[i]);
+        }
+      }
+      const result = await request.query(sql);
+      return result.recordset;
+    } catch (err: any) {
+      throw new ConnectionError(
+        `Query failed: ${err.message}\nSQL: ${sql.substring(0, 200)}`,
+        'query',
+        err,
+      );
+    }
+  }
+
+  async close(): Promise<void> {
+    try {
+      await this.pool.close();
+    } catch {
+      /* harmless */
+    }
+  }
+}
+
+// =============================================================================
 // Factory
 // =============================================================================
 
@@ -264,6 +354,7 @@ class SQLiteConnection implements DBConnection {
  *  - `postgresql` — via the `pg` package
  *  - `mysql` / `mariadb` — via the `mysql2` package
  *  - `sqlite` — via built-in `node:sqlite` (Node >= 22.5)
+ *  - `mssql` — via the `mssql` package
  *
  * @throws ConnectionError if the driver is unavailable or the connection fails.
  */
@@ -276,9 +367,11 @@ export async function createConnection(config: DbConnectionConfig): Promise<DBCo
       return await MySQLConnection.create(config);
     case 'sqlite':
       return SQLiteConnection.create(config);
+    case 'mssql':
+      return await MSSQLConnection.create(config);
     default:
       throw new ConnectionError(
-        `Unsupported engine: "${config.engine}". Supported engines: postgresql, mysql, mariadb, sqlite`,
+        `Unsupported engine: "${config.engine}". Supported engines: postgresql, mysql, mariadb, sqlite, mssql`,
         config.alias,
       );
   }
