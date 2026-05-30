@@ -87,4 +87,3 @@ This project has a CodeGraph index (`.codegraph/`). Prefer codegraph tools over 
 ## TODO
 
 - [ ] **MSSQL Windows Auth** — Add support for Windows integrated security / Azure AD authentication in `MSSQLConnection` (`connection.ts`)
-- [ ] **`schemas: []` behavior** — Empty `schemas` array currently introspects all schemas (matches no-filter behavior). Decide: treat as "introspect nothing" or keep as "no filter"

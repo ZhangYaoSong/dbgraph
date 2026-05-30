@@ -128,8 +128,12 @@ export class MSSQLIntrospector extends BaseIntrospector {
 
     try {
       // ----- 1. Determine which schemas to introspect -----
+      // schemas: undefined   → no filter (all schemas)
+      // schemas: ["*"]       → explicit "all schemas" (no filter)
+      // schemas: ["public"]  → filter specific schemas
+      // schemas: []          → introspect nothing
       const hasFilter =
-        this.config.schemas !== undefined;
+        this.config.schemas !== undefined && !this.config.schemas.includes('*');
       const schemaFilter = new Set(this.config.schemas ?? []);
 
       const schemas = await this.querySchemas(conn);
