@@ -1,0 +1,54 @@
+{
+  "name": "dbgraph",
+  "version": "0.1.0",
+  "description": "Database knowledge graph for LLM-powered SQL generation. Introspect database schemas into a local-first knowledge graph, exposed over MCP.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "dbgraph": "./dist/bin/dbgraph.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"const fs=require('fs');fs.mkdirSync('dist/db',{recursive:true});fs.copyFileSync('src/db/schema.sql','dist/db/schema.sql');require('fs').chmodSync('dist/bin/dbgraph.js',0o755)\"",
+    "dev": "tsc --watch",
+    "cli": "npm run build && node dist/bin/dbgraph.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "database",
+    "knowledge-graph",
+    "sql",
+    "llm",
+    "mcp",
+    "schema-introspection"
+  ],
+  "author": "ZhangYaoSong",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZhangYaoSong/dbgraph.git"
+  },
+  "homepage": "https://github.com/ZhangYaoSong/dbgraph#readme",
+  "bugs": {
+    "url": "https://github.com/ZhangYaoSong/dbgraph/issues"
+  },
+  "dependencies": {
+    "commander": "^14.0.2",
+    "jsonc-parser": "^3.3.1",
+    "mysql2": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.30",
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
