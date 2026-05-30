@@ -16,8 +16,6 @@ import {
   DbConnectionConfig,
   Node,
   Edge,
-  NodeKind,
-  EdgeKind,
 } from '../types';
 import { BaseIntrospector } from './base';
 import { parseAuth } from './connection';
@@ -87,6 +85,8 @@ export class MongoDBIntrospector extends BaseIntrospector {
       const db = client.db(this.config.database);
       const dbName = this.config.database;
 
+      // NOTE: config.schemas is silently ignored — MongoDB has no schema layer.
+
       // -----------------------------------------------------------------------
       // 1. List all collections (non-system, user-accessible)
       // -----------------------------------------------------------------------
@@ -97,9 +97,12 @@ export class MongoDBIntrospector extends BaseIntrospector {
         )
         .toArray();
 
-      // Separate regular collections from views
+      // Separate regular collections, timeseries, and views;
+      // exclude system collections (system.*)
       const collections = collectionsRaw.filter(
-        (c: any) => !c.type || c.type === 'collection',
+        (c: any) =>
+          !c.name.startsWith('system.') &&
+          (!c.type || c.type === 'collection' || c.type === 'timeseries'),
       );
       const views = collectionsRaw.filter((c: any) => c.type === 'view');
 
@@ -133,12 +136,19 @@ export class MongoDBIntrospector extends BaseIntrospector {
         try {
           const mongoColl = db.collection(collName);
           indexes = await mongoColl.indexes();
+        } catch (err: any) {
+          errors.push(
+            `Skipping indexes for ${collName}: ${err.message}`,
+          );
+        }
+        try {
+          const mongoColl = db.collection(collName);
           // estimatedDocumentCount() — fast metadata read.
           // NOTE: on sharded clusters this may be approximate.
           docCount = await mongoColl.estimatedDocumentCount();
         } catch (err: any) {
           errors.push(
-            `Skipping indexes/stats for ${collName}: ${err.message}`,
+            `Skipping document count for ${collName}: ${err.message}`,
           );
         }
 
@@ -159,13 +169,17 @@ export class MongoDBIntrospector extends BaseIntrospector {
             metadata: {
               documentCount: docCount,
               ...(validationSchema ? { validation: validationSchema } : {}),
-              collectionOptions: {
-                capped: collOptions.capped || undefined,
-                size: collOptions.size || undefined,
-                max: collOptions.max || undefined,
-                collation: collOptions.collation || undefined,
-                timeseries: collOptions.timeseries || undefined,
-              },
+              ...(collOptions.capped || collOptions.size || collOptions.max || collOptions.collation || collOptions.timeseries
+                ? {
+                    collectionOptions: {
+                      ...(collOptions.capped !== undefined ? { capped: collOptions.capped } : {}),
+                      ...(collOptions.size !== undefined ? { size: collOptions.size } : {}),
+                      ...(collOptions.max !== undefined ? { max: collOptions.max } : {}),
+                      ...(collOptions.collation ? { collation: collOptions.collation } : {}),
+                      ...(collOptions.timeseries ? { timeseries: collOptions.timeseries } : {}),
+                    },
+                  }
+                : {}),
             },
           },
         );
@@ -179,14 +193,9 @@ export class MongoDBIntrospector extends BaseIntrospector {
 
           // Determine index type from key values
           const keyValues = Object.values(idx.key || {}) as any[];
+          const SPECIAL_KEY_TYPES = new Set(['text', '2dsphere', '2d', 'hashed']);
           const idxType =
-            keyValues.some((v) => v === 'text')
-              ? 'text'
-              : keyValues.some((v) => v === '2dsphere')
-                ? '2dsphere'
-                : keyValues.some((v) => v === 'hashed')
-                  ? 'hashed'
-                  : 'regular';
+            keyValues.find((v: any) => SPECIAL_KEY_TYPES.has(v)) || 'regular';
 
           const idxNode = this.makeNode(
             'index',
@@ -279,13 +288,15 @@ export class MongoDBIntrospector extends BaseIntrospector {
     const host = this.config.host || 'localhost';
     const port = this.config.port || 27017;
 
+    const encodedDb = encodeURIComponent(this.config.database);
+
     if (auth.user && auth.password) {
-      return `mongodb://${encodeURIComponent(auth.user)}:${encodeURIComponent(auth.password)}@${host}:${port}/${this.config.database}`;
+      return `mongodb://${encodeURIComponent(auth.user)}:${encodeURIComponent(auth.password)}@${host}:${port}/${encodedDb}`;
     }
     if (auth.user) {
-      return `mongodb://${encodeURIComponent(auth.user)}@${host}:${port}/${this.config.database}`;
+      return `mongodb://${encodeURIComponent(auth.user)}@${host}:${port}/${encodedDb}`;
     }
-    return `mongodb://${host}:${port}/${this.config.database}`;
+    return `mongodb://${host}:${port}/${encodedDb}`;
   }
 
   /**
@@ -296,6 +307,7 @@ export class MongoDBIntrospector extends BaseIntrospector {
     const uri = this.buildUri();
     return mongodb.MongoClient.connect(uri, {
       tls: this.config.ssl ?? false,
+      tlsAllowInvalidCertificates: false,
       connectTimeoutMS: 10_000,
       serverSelectionTimeoutMS: 10_000,
     });
