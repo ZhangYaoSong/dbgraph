@@ -213,6 +213,9 @@ export interface DbConnectionConfig {
   /** Authentication method */
   auth?: string;
 
+  /** Authentication type for MSSQL: 'password' (default) or 'integrated' (Windows Auth) */
+  authType?: 'password' | 'integrated';
+
   /** SSL settings */
   ssl?: boolean;
 

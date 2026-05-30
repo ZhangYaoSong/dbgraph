@@ -100,7 +100,9 @@ export function loadConfig(configPath: string): DBGraphConfig {
       schemas: db.schemas,
       path: db.path,
       auth: db.auth,
+      authType: db.authType,
       ssl: db.ssl,
+      tlsInsecure: db.tlsInsecure,
     });
   }
 
