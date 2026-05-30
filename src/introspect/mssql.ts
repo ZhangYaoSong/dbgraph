@@ -25,6 +25,7 @@ import {
 } from '../types';
 import { BaseIntrospector } from './base';
 import { createConnection, DBConnection } from './connection';
+import { hashString } from '../utils';
 
 // =============================================================================
 // Raw Row Types
@@ -247,6 +248,19 @@ export class MSSQLIntrospector extends BaseIntrospector {
               onDelete: fk.delete_rule,
             }),
           );
+        } else if (fromNode) {
+          // Cross-schema FK reference — emit unresolved edge
+          edges.push(
+            this.makeEdge(fromNode.id, hashString(`${fk.ref_table_schema}.${fk.ref_table_name}.${fk.ref_column_name}`), 'references', {
+              constraintName: fk.constraint_name,
+              onUpdate: fk.update_rule,
+              onDelete: fk.delete_rule,
+              refTableSchema: fk.ref_table_schema,
+              refTableName: fk.ref_table_name,
+              refColumn: fk.ref_column_name,
+              unresolved: true,
+            }),
+          );
         }
       }
 
@@ -358,15 +372,17 @@ export class MSSQLIntrospector extends BaseIntrospector {
     schemaNames: string[],
   ): Promise<TableRow[]> {
     if (schemaNames.length === 0) return [];
-    const rows = (await conn.query(
+    const placeholders = schemaNames.map(() => '?').join(',');
+    return (await conn.query(
       `SELECT TABLE_SCHEMA AS schema_name,
               TABLE_NAME AS table_name,
               TABLE_TYPE AS table_type
        FROM INFORMATION_SCHEMA.TABLES
        WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')
+         AND TABLE_SCHEMA IN (${placeholders})
        ORDER BY TABLE_NAME`,
+      schemaNames,
     )) as TableRow[];
-    return rows.filter((r) => schemaNames.includes(r.schema_name));
   }
 
   /**
@@ -377,7 +393,8 @@ export class MSSQLIntrospector extends BaseIntrospector {
     schemaNames: string[],
   ): Promise<ColumnRow[]> {
     if (schemaNames.length === 0) return [];
-    const rows = (await conn.query(
+    const placeholders = schemaNames.map(() => '?').join(',');
+    return (await conn.query(
       `SELECT c.TABLE_SCHEMA AS schema_name,
               c.TABLE_NAME AS table_name,
               c.COLUMN_NAME AS column_name,
@@ -388,11 +405,12 @@ export class MSSQLIntrospector extends BaseIntrospector {
               c.NUMERIC_PRECISION AS numeric_precision,
               c.NUMERIC_SCALE AS numeric_scale,
               c.ORDINAL_POSITION AS ordinal_position,
-              COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME, 'IsIdentity') AS is_identity
+              COLUMNPROPERTY(OBJECT_ID(QUOTENAME(c.TABLE_SCHEMA) + '.' + QUOTENAME(c.TABLE_NAME)), c.COLUMN_NAME, 'IsIdentity') AS is_identity
        FROM INFORMATION_SCHEMA.COLUMNS c
+       WHERE c.TABLE_SCHEMA IN (${placeholders})
        ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION`,
+      schemaNames,
     )) as ColumnRow[];
-    return rows.filter((r) => schemaNames.includes(r.schema_name));
   }
 
   /**
@@ -403,7 +421,8 @@ export class MSSQLIntrospector extends BaseIntrospector {
     schemaNames: string[],
   ): Promise<PkRow[]> {
     if (schemaNames.length === 0) return [];
-    const rows = (await conn.query(
+    const placeholders = schemaNames.map(() => '?').join(',');
+    return (await conn.query(
       `SELECT tc.TABLE_SCHEMA AS schema_name,
               tc.TABLE_NAME AS table_name,
               tc.CONSTRAINT_NAME AS constraint_name,
@@ -416,9 +435,10 @@ export class MSSQLIntrospector extends BaseIntrospector {
         AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
         AND tc.TABLE_NAME = kcu.TABLE_NAME
        WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+         AND tc.TABLE_SCHEMA IN (${placeholders})
        ORDER BY tc.TABLE_NAME, kcu.ORDINAL_POSITION`,
+      schemaNames,
     )) as PkRow[];
-    return rows.filter((r) => schemaNames.includes(r.schema_name));
   }
 
   /**
@@ -432,7 +452,8 @@ export class MSSQLIntrospector extends BaseIntrospector {
     schemaNames: string[],
   ): Promise<FkRow[]> {
     if (schemaNames.length === 0) return [];
-    const rows = (await conn.query(
+    const placeholders = schemaNames.map(() => '?').join(',');
+    return (await conn.query(
       `SELECT tc.TABLE_SCHEMA AS schema_name,
               tc.TABLE_NAME AS table_name,
               tc.CONSTRAINT_NAME AS constraint_name,
@@ -456,9 +477,10 @@ export class MSSQLIntrospector extends BaseIntrospector {
         AND rc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
         AND rc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
        WHERE tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
+         AND tc.TABLE_SCHEMA IN (${placeholders})
        ORDER BY tc.TABLE_NAME, tc.CONSTRAINT_NAME, kcu.ORDINAL_POSITION`,
+      schemaNames,
     )) as FkRow[];
-    return rows.filter((r) => schemaNames.includes(r.schema_name));
   }
 
   /**
@@ -473,7 +495,8 @@ export class MSSQLIntrospector extends BaseIntrospector {
     schemaNames: string[],
   ): Promise<IndexRow[]> {
     if (schemaNames.length === 0) return [];
-    const rows = (await conn.query(
+    const placeholders = schemaNames.map(() => '?').join(',');
+    return (await conn.query(
       `SELECT s.name AS schema_name,
               t.name AS table_name,
               i.name AS index_name,
@@ -486,9 +509,10 @@ export class MSSQLIntrospector extends BaseIntrospector {
        JOIN sys.schemas s ON t.schema_id = s.schema_id
        JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
        JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = ic.column_id
+       WHERE s.name IN (${placeholders})
        ORDER BY t.name, i.name, ic.key_ordinal`,
+      schemaNames,
     )) as IndexRow[];
-    return rows.filter((r) => schemaNames.includes(r.schema_name));
   }
 
   /**
@@ -499,13 +523,15 @@ export class MSSQLIntrospector extends BaseIntrospector {
     schemaNames: string[],
   ): Promise<ViewRow[]> {
     if (schemaNames.length === 0) return [];
-    const rows = (await conn.query(
+    const placeholders = schemaNames.map(() => '?').join(',');
+    return (await conn.query(
       `SELECT v.TABLE_SCHEMA AS schema_name,
               v.TABLE_NAME AS table_name,
               v.VIEW_DEFINITION AS view_definition
        FROM INFORMATION_SCHEMA.VIEWS v
+       WHERE v.TABLE_SCHEMA IN (${placeholders})
        ORDER BY v.TABLE_NAME`,
+      schemaNames,
     )) as ViewRow[];
-    return rows.filter((r) => schemaNames.includes(r.schema_name));
   }
 }
