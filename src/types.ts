@@ -215,6 +215,9 @@ export interface DbConnectionConfig {
 
   /** SSL settings */
   ssl?: boolean;
+
+  /** TLS insecure mode (MongoDB): allow self-signed certificates */
+  tlsInsecure?: boolean;
 }
 
 // =============================================================================
