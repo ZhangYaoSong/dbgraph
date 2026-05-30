@@ -43,6 +43,59 @@ npx dbgraph serve
 
 AI agents connected to MCP automatically discover `dbgraph_*` tools for schema-aware SQL generation.
 
+## MCP Configuration
+
+Add DBGraph as an MCP server in your agent's config:
+
+**opencode** (`~/.config/opencode/opencode.json`):
+```json
+{
+  "mcp": {
+    "dbgraph": {
+      "type": "local",
+      "command": ["npx", "dbgraph", "serve", "--auto-refresh"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Cursor** → Settings → MCP Servers → Add:
+```json
+{
+  "mcpServers": {
+    "dbgraph": {
+      "command": "npx",
+      "args": ["dbgraph", "serve", "--auto-refresh"]
+    }
+  }
+}
+```
+
+**Claude Code** (`~/.claude/settings.json`):
+```json
+{
+  "mcpServers": {
+    "dbgraph": {
+      "command": "npx",
+      "args": ["dbgraph", "serve", "--auto-refresh"]
+    }
+  }
+}
+```
+
+**Codex CLI** (`~/.codexclirc.json`):
+```json
+{
+  "mcpServers": {
+    "dbgraph": {
+      "type": "local",
+      "command": ["npx", "dbgraph", "serve", "--auto-refresh"]
+    }
+  }
+}
+```
+
 ## Why DBGraph?
 
 LLMs write wrong SQL because they **don't know your schema** — guessing table names, column names, and JOIN conditions. DBGraph extracts your complete database schema (tables, columns, types, foreign keys, constraints, indexes) into a **searchable knowledge graph** stored in `.dbgraph/`. AI agents query it via MCP tools directly — no live database connection needed.

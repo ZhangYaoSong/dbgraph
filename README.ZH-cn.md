@@ -43,6 +43,59 @@ npx dbgraph serve
 
 AI 代理连接 MCP 后自动发现 `dbgraph_*` 工具，用于 schema 感知的 SQL 生成。
 
+## MCP 配置
+
+在 AI 代理的配置文件中添加 DBGraph 作为 MCP 服务器：
+
+**opencode**（`~/.config/opencode/opencode.json`）：
+```json
+{
+  "mcp": {
+    "dbgraph": {
+      "type": "local",
+      "command": ["npx", "dbgraph", "serve", "--auto-refresh"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Cursor** → 设置 → MCP Servers → 添加：
+```json
+{
+  "mcpServers": {
+    "dbgraph": {
+      "command": "npx",
+      "args": ["dbgraph", "serve", "--auto-refresh"]
+    }
+  }
+}
+```
+
+**Claude Code**（`~/.claude/settings.json`）：
+```json
+{
+  "mcpServers": {
+    "dbgraph": {
+      "command": "npx",
+      "args": ["dbgraph", "serve", "--auto-refresh"]
+    }
+  }
+}
+```
+
+**Codex CLI**（`~/.codexclirc.json`）：
+```json
+{
+  "mcpServers": {
+    "dbgraph": {
+      "type": "local",
+      "command": ["npx", "dbgraph", "serve", "--auto-refresh"]
+    }
+  }
+}
+```
+
 ## 为什么用 DBGraph？
 
 LLM 写 SQL 出错的最大原因是**不知道库表结构**——表名靠猜、列名靠蒙、JOIN 条件靠碰运气。DBGraph 把数据库 schema（表、列、类型、外键、约束、索引）提取为**可搜索的知识图谱**存在 `.dbgraph/` 中。AI 代理通过 MCP 工具直接查询，无需数据库直连。
