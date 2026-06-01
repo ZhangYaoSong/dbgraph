@@ -60,7 +60,7 @@ const tools: ToolDefinition[] = [
   {
     name: 'dbgraph_search',
     description:
-      'Search database schema objects by name. Returns matching tables, columns, views, indexes, and constraints with relevance scores. Use this FIRST to find schema objects before calling dbgraph_context.',
+      'Search database schema objects by name. For SQL engines returns matching tables, columns, views, indexes, and constraints. For MongoDB returns collections and indexes (no column-level data). Use this FIRST to find schema objects before calling dbgraph_context.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -86,7 +86,7 @@ const tools: ToolDefinition[] = [
   {
     name: 'dbgraph_context',
     description:
-      'PRIMARY TOOL — Get the full schema context for a table or view. Returns columns with types, nullability, defaults, primary keys, foreign keys, indexes, comments, and a list of tables that reference this one. Call this BEFORE writing SQL against a table.',
+      'PRIMARY TOOL — Get the full schema context for a table or view. For SQL engines returns columns with types, nullability, defaults, primary keys, foreign keys, indexes, comments, and references. For MongoDB returns collection metadata (document count, indexes, $jsonSchema) but no column-level fields (MongoDB is schemaless). Call this BEFORE writing SQL against a table.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -102,7 +102,7 @@ const tools: ToolDefinition[] = [
   {
     name: 'dbgraph_trace',
     description:
-      'Trace foreign key relationships between two tables. Returns the join path (sequence of tables and FK columns) from source to target, or explains why no path exists. Use this to discover how to JOIN tables correctly.',
+      'Trace foreign key relationships between two tables (SQL engines only — MongoDB has no FK constraints). Returns the join path (sequence of tables and FK columns) from source to target, or explains why no path exists. Use this to discover how to JOIN tables correctly.',
     inputSchema: {
       type: 'object',
       properties: {

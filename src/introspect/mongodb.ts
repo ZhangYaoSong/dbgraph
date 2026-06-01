@@ -85,7 +85,18 @@ export class MongoDBIntrospector extends BaseIntrospector {
       const db = client.db(this.config.database);
       const dbName = this.config.database;
 
-      // NOTE: config.schemas is silently ignored — MongoDB has no schema layer.
+      // Warn if config.schemas is set — MongoDB has no schema layer
+      const hasSchemaFilter =
+        this.config.schemas !== undefined &&
+        this.config.schemas.length > 0 &&
+        !this.config.schemas.includes('*');
+      if (hasSchemaFilter) {
+        errors.push(
+          `Warning: "schemas" filter is set for MongoDB source "${this.config.alias}" ` +
+          `but MongoDB does not have a schema layer. All collections will be introspected. ` +
+          `To suppress this warning, remove "schemas" from this source's config.`,
+        );
+      }
 
       // -----------------------------------------------------------------------
       // 1. List all collections (non-system, user-accessible)
@@ -285,31 +296,39 @@ export class MongoDBIntrospector extends BaseIntrospector {
    * Build a MongoDB connection URI from the config.
    * NOTE: encodeURIComponent() is required for passwords containing
    * special characters (@, :, /, ?, #, %). parseAuth() does raw split only.
+   *
+   * When config.srv is true, uses mongodb+srv:// protocol (Atlas/cloud).
+   * SRV mode: port is forced to undefined (DNS-resolved), TLS is auto-enabled.
    */
   private buildUri(): string {
     const auth = parseAuth(this.config.auth);
     const host = this.config.host || 'localhost';
     const port = this.config.port || 27017;
-
+    const protocol = this.config.srv ? 'mongodb+srv' : 'mongodb';
     const encodedDb = encodeURIComponent(this.config.database);
 
+    // SRV protocol does not allow manual port — omit it
+    const hostPart = this.config.srv ? host : `${host}:${port}`;
+
     if (auth.user && auth.password) {
-      return `mongodb://${encodeURIComponent(auth.user)}:${encodeURIComponent(auth.password)}@${host}:${port}/${encodedDb}`;
+      return `${protocol}://${encodeURIComponent(auth.user)}:${encodeURIComponent(auth.password)}@${hostPart}/${encodedDb}`;
     }
     if (auth.user) {
-      return `mongodb://${encodeURIComponent(auth.user)}@${host}:${port}/${encodedDb}`;
+      return `${protocol}://${encodeURIComponent(auth.user)}@${hostPart}/${encodedDb}`;
     }
-    return `mongodb://${host}:${port}/${encodedDb}`;
+    return `${protocol}://${hostPart}/${encodedDb}`;
   }
 
   /**
    * Connect to MongoDB and return the MongoClient.
+   * SRV protocol forces TLS — config.ssl is ignored when srv is true.
    */
   private async connectClient(): Promise<any> {
     const mongodb = this.importMongoDriver();
     const uri = this.buildUri();
+    const tls = this.config.srv ? true : (this.config.ssl ?? false);
     return mongodb.MongoClient.connect(uri, {
-      tls: this.config.ssl ?? false,
+      tls,
       tlsAllowInvalidCertificates: this.config.tlsInsecure ?? false,
       connectTimeoutMS: 10_000,
       serverSelectionTimeoutMS: 10_000,

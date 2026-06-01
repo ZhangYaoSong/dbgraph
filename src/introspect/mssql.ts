@@ -448,10 +448,12 @@ export class MSSQLIntrospector extends BaseIntrospector {
   }
 
   /**
-   * Query: foreign key columns + referenced table/column + referential actions.
+   * Query: foreign key columns + referential actions.
    *
-   * Uses the standard INFORMATION_SCHEMA 4-table join:
-   *   TABLE_CONSTRAINTS + KEY_COLUMN_USAGE + CONSTRAINT_COLUMN_USAGE + REFERENTIAL_CONSTRAINTS
+   * Uses sys.foreign_keys / sys.foreign_key_columns catalog views
+   * (faster than the INFORMATION_SCHEMA 4-table join).
+   * Referential action codes are mapped via CASE:
+   *   0 = NO ACTION, 1 = CASCADE, 2 = SET_NULL, 3 = SET_DEFAULT
    */
   private async queryForeignKeys(
     conn: DBConnection,
@@ -460,31 +462,38 @@ export class MSSQLIntrospector extends BaseIntrospector {
     if (schemaNames.length === 0) return [];
     const placeholders = schemaNames.map(() => '?').join(',');
     return (await conn.query(
-      `SELECT tc.TABLE_SCHEMA AS schema_name,
-              tc.TABLE_NAME AS table_name,
-              tc.CONSTRAINT_NAME AS constraint_name,
-              kcu.COLUMN_NAME AS column_name,
-              ccu.TABLE_SCHEMA AS ref_table_schema,
-              ccu.TABLE_NAME AS ref_table_name,
-              ccu.COLUMN_NAME AS ref_column_name,
-              rc.UPDATE_RULE AS update_rule,
-              rc.DELETE_RULE AS delete_rule
-       FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-       JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
-         ON tc.CONSTRAINT_CATALOG = kcu.CONSTRAINT_CATALOG
-        AND tc.CONSTRAINT_SCHEMA = kcu.CONSTRAINT_SCHEMA
-        AND tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
-       JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ccu
-         ON ccu.CONSTRAINT_CATALOG = tc.CONSTRAINT_CATALOG
-        AND ccu.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
-        AND ccu.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
-       JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
-         ON rc.CONSTRAINT_CATALOG = tc.CONSTRAINT_CATALOG
-        AND rc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
-        AND rc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
-       WHERE tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
-         AND tc.TABLE_SCHEMA IN (${placeholders})
-       ORDER BY tc.TABLE_NAME, tc.CONSTRAINT_NAME, kcu.ORDINAL_POSITION`,
+      `SELECT s.name AS schema_name,
+              OBJECT_NAME(fk.parent_object_id) AS table_name,
+              fk.name AS constraint_name,
+              COL_NAME(fkc.parent_object_id, fkc.parent_column_id) AS column_name,
+              ref_s.name AS ref_table_schema,
+              OBJECT_NAME(fk.referenced_object_id) AS ref_table_name,
+              COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS ref_column_name,
+              CASE fk.update_referential_action
+                WHEN 0 THEN 'NO ACTION'
+                WHEN 1 THEN 'CASCADE'
+                WHEN 2 THEN 'SET_NULL'
+                WHEN 3 THEN 'SET_DEFAULT'
+              END AS update_rule,
+              CASE fk.delete_referential_action
+                WHEN 0 THEN 'NO ACTION'
+                WHEN 1 THEN 'CASCADE'
+                WHEN 2 THEN 'SET_NULL'
+                WHEN 3 THEN 'SET_DEFAULT'
+              END AS delete_rule
+       FROM sys.foreign_keys fk
+       JOIN sys.foreign_key_columns fkc
+         ON fk.object_id = fkc.constraint_object_id
+       JOIN sys.tables pt
+         ON fk.parent_object_id = pt.object_id
+       JOIN sys.schemas s
+         ON pt.schema_id = s.schema_id
+       JOIN sys.tables rt
+         ON fk.referenced_object_id = rt.object_id
+       JOIN sys.schemas ref_s
+         ON rt.schema_id = ref_s.schema_id
+       WHERE s.name IN (${placeholders})
+       ORDER BY pt.name, fk.name, fkc.constraint_column_id`,
       schemaNames,
     )) as FkRow[];
   }
@@ -504,19 +513,20 @@ export class MSSQLIntrospector extends BaseIntrospector {
     const placeholders = schemaNames.map(() => '?').join(',');
     return (await conn.query(
       `SELECT s.name AS schema_name,
-              t.name AS table_name,
+              o.name AS table_name,
               i.name AS index_name,
               i.is_unique AS is_unique,
               i.is_primary_key AS is_primary_key,
               c.name AS column_name,
               ic.key_ordinal AS ordinal_position
        FROM sys.indexes i
-       JOIN sys.tables t ON i.object_id = t.object_id
-       JOIN sys.schemas s ON t.schema_id = s.schema_id
+       JOIN sys.objects o ON i.object_id = o.object_id
+       JOIN sys.schemas s ON o.schema_id = s.schema_id
        JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
        JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = ic.column_id
-       WHERE s.name IN (${placeholders})
-       ORDER BY t.name, i.name, ic.key_ordinal`,
+       WHERE o.type IN ('U', 'V')
+         AND s.name IN (${placeholders})
+       ORDER BY o.name, i.name, ic.key_ordinal`,
       schemaNames,
     )) as IndexRow[];
   }

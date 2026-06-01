@@ -13,6 +13,8 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-supported-blue)](#supported-engines)
 [![MySQL](https://img.shields.io/badge/MySQL-supported-blue)](#supported-engines)
 [![SQLite](https://img.shields.io/badge/SQLite-supported-blue)](#supported-engines)
+[![SQL Server](https://img.shields.io/badge/SQL_Server-supported-blue)](#supported-engines)
+[![MongoDB](https://img.shields.io/badge/MongoDB-supported-blue)](#supported-engines)
 
 </div>
 
@@ -173,24 +175,45 @@ Edit `dbgraph-db.json` in your project root:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `alias` | string | yes | Database alias (`db://@alias` in graph) |
-| `engine` | string | yes | `postgresql` / `mysql` / `mariadb` / `sqlite` |
+| `engine` | string | yes | `postgresql` / `mysql` / `mariadb` / `sqlite` / `mssql` / `mongodb` |
 | `host` | string | no | Host address |
 | `port` | number | no | Port (default depends on engine) |
 | `database` | string | depends | Required for PostgreSQL/MySQL |
 | `schemas` | string[] | no | Schemas to introspect (default: all) |
 | `path` | string | depends | Required for SQLite |
 | `auth` | string | no | `env:VAR_NAME` or `~/.pgpass` |
-| `ssl` | boolean | no | Enable SSL |
+| `authType` | string | no | MSSQL auth: `password` (default) or `integrated` (Windows Auth) |
+| `ssl` | boolean | no | Enable SSL/TLS |
+| `srv` | boolean | no | MongoDB: use `mongodb+srv://` protocol (Atlas). Port is ignored, TLS forced. |
+| `tlsInsecure` | boolean | no | MongoDB: allow self-signed TLS certificates |
 
 ## Supported Engines
 
-| Engine | Status |
-|--------|--------|
-| PostgreSQL | ✅ Full support |
-| MySQL / MariaDB | ✅ Full support |
-| SQLite | ✅ Full support |
-| SQL Server | 🔜 Planned |
-| Oracle | 🔜 Planned |
+| Engine | Status | Notes |
+|--------|--------|-------|
+| PostgreSQL | ✅ Full support | Schemas, tables, columns, PKs, FKs, indexes, views |
+| MySQL / MariaDB | ✅ Full support | Same schema model as PostgreSQL |
+| SQLite | ✅ Full support | Single-file databases, no schema layer |
+| SQL Server (MSSQL) | ✅ Full support | Windows Integrated Auth available via `authType: "integrated"` |
+| MongoDB | ✅ Full support | Collections, indexes, views, `$jsonSchema` validation; no column-level nodes (schemaless by design) |
+| Oracle | 🔜 Planned | — |
+
+## Driver Installation
+
+Some database engines require additional npm packages. DBGraph uses lazy imports so these are optional — you only need to install the driver for engines you actually use:
+
+| Engine | Install Command | Notes |
+|--------|----------------|-------|
+| PostgreSQL | `npm install pg` | Required for `postgresql` engine |
+| MySQL / MariaDB | *(bundled)* | `mysql2` is included by default |
+| SQLite | *(built-in)* | Uses `node:sqlite` (Node.js 22.5+) |
+| SQL Server (MSSQL) | `npm install mssql` | Windows Auth also needs: `npm install msnodesqlv8` |
+| MongoDB | `npm install mongodb` | Collections only — no column-level fields (schemaless by design). SRV (`srv: true`) supported for Atlas |
+
+Example — add MSSQL and MongoDB support:
+```bash
+npm install mssql mongodb
+```
 
 ## Development
 

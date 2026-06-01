@@ -9,7 +9,7 @@ DBGraph is a TypeScript CLI + MCP Server that introspects database schemas into 
 - **CLI entry**: `src/bin/dbgraph.ts` → built output `dist/bin/dbgraph.js`
 - **Main class**: `DBGraph` in `src/index.ts`
 - **Type definitions**: `src/types.ts`
-- **Database introspection**: `src/introspect/` — one file per engine (`postgres.ts`, `mysql.ts`, `sqlite.ts`), all extending `BaseIntrospector`
+- **Database introspection**: `src/introspect/` — one file per engine (`postgres.ts`, `mysql.ts`, `sqlite.ts`, `mssql.ts`, `mongodb.ts`), all extending `BaseIntrospector`
 - **MCP Server**: `src/mcp/` — supports stdio mode and daemon socket mode
 - **Graph traversal**: `src/graph/traversal.ts` (BFS/DFS/pathfinding)
 
@@ -86,4 +86,6 @@ This project has a CodeGraph index (`.codegraph/`). Prefer codegraph tools over 
 
 ## TODO
 
-- [ ] **MSSQL Windows Auth** — Add support for Windows integrated security / Azure AD authentication in `MSSQLConnection` (`connection.ts`)
+- [x] **MSSQL Windows Auth** — Windows integrated security / Azure AD authentication in `MSSQLConnection` (`connection.ts`) — **已完成 (已在代码中实现)**
+- [x] **MongoDB Atlas SRV 连接** — 支持 `mongodb+srv://` 连接字符串 — **已完成**
+- ~~[ ] **MongoDB 字段采样** — 可选的对集合文档采样以推断字段级 schema（已搁置，详见风险评估）~~

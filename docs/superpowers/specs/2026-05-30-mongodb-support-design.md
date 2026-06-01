@@ -311,7 +311,7 @@ No changes to:
 
 ## Future Considerations (not in v1)
 
-- **Document sampling** — Optional field inference by sampling N documents per collection
+- ~~**Document sampling** — Optional field inference by sampling N documents per collection~~ *(deferred indefinitely — see risk assessment)*
 - **SRV protocol** — `mongodb+srv://` for Atlas/cloud deployments
 - **`authSource` config** — Option to specify auth database separately
 - **Multiple database support** — Introspect all databases on a MongoDB server

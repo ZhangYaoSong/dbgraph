@@ -9,7 +9,7 @@ DBGraph 是一个 TypeScript CLI + MCP Server，内省数据库 schema 存入 SQ
 - **CLI 入口**: `src/bin/dbgraph.ts` → 构建产物 `dist/bin/dbgraph.js`
 - **主类**: `src/index.ts` 的 `DBGraph` 类
 - **类型定义全集**: `src/types.ts`
-- **数据库内省**: `src/introspect/` 下每个引擎一个文件（`postgres.ts`, `mysql.ts`, `sqlite.ts`），继承 `BaseIntrospector`
+- **数据库内省**: `src/introspect/` 下每个引擎一个文件（`postgres.ts`, `mysql.ts`, `sqlite.ts`, `mssql.ts`, `mongodb.ts`），继承 `BaseIntrospector`
 - **MCP Server**: `src/mcp/`，支持 stdio 模式和 daemon socket 模式
 - **图形遍历**: `src/graph/traversal.ts`（BFS/DFS/寻路）
 

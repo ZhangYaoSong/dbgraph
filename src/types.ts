@@ -221,6 +221,9 @@ export interface DbConnectionConfig {
 
   /** TLS insecure mode (MongoDB): allow self-signed certificates */
   tlsInsecure?: boolean;
+
+  /** Use mongodb+srv:// protocol (MongoDB Atlas). When true, port is ignored and TLS is forced. */
+  srv?: boolean;
 }
 
 // =============================================================================

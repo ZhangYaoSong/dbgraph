@@ -13,6 +13,8 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-支持-blue)](#支持引擎)
 [![MySQL](https://img.shields.io/badge/MySQL-支持-blue)](#支持引擎)
 [![SQLite](https://img.shields.io/badge/SQLite-支持-blue)](#支持引擎)
+[![SQL Server](https://img.shields.io/badge/SQL_Server-支持-blue)](#支持引擎)
+[![MongoDB](https://img.shields.io/badge/MongoDB-支持-blue)](#支持引擎)
 
 </div>
 
@@ -173,24 +175,45 @@ npx dbgraph status ./other-project  # 其他项目
 | 字段 | 类型 | 必填 | 说明 |
 |-------|------|----------|-------------|
 | `alias` | string | 是 | 数据库别名（图谱中以 `db://@alias` 标识）|
-| `engine` | string | 是 | `postgresql` / `mysql` / `mariadb` / `sqlite` |
+| `engine` | string | 是 | `postgresql` / `mysql` / `mariadb` / `sqlite` / `mssql` / `mongodb` |
 | `host` | string | 否 | 主机地址 |
 | `port` | number | 否 | 端口（默认根据引擎判断）|
 | `database` | string | 视情况 | PostgreSQL/MySQL 必填 |
 | `schemas` | string[] | 否 | 要提取的 schema 列表（默认全部）|
 | `path` | string | 视情况 | SQLite 必填 |
 | `auth` | string | 否 | `env:VAR_NAME` 或 `~/.pgpass` |
-| `ssl` | boolean | 否 | 启用 SSL |
+| `authType` | string | 否 | MSSQL 认证方式：`password`（默认）或 `integrated`（Windows 集成认证）|
+| `ssl` | boolean | 否 | 启用 SSL/TLS |
+| `srv` | boolean | 否 | MongoDB：使用 `mongodb+srv://` 协议（Atlas）。忽略端口，强制 TLS。 |
+| `tlsInsecure` | boolean | 否 | MongoDB：允许自签名 TLS 证书 |
 
 ## 支持引擎
 
-| 引擎 | 状态 |
-|--------|------|
-| PostgreSQL | ✅ 完整支持 |
-| MySQL / MariaDB | ✅ 完整支持 |
-| SQLite | ✅ 完整支持 |
-| SQL Server | 🔜 计划中 |
-| Oracle | 🔜 计划中 |
+| 引擎 | 状态 | 说明 |
+|--------|------|------|
+| PostgreSQL | ✅ 完整支持 | Schema、表、列、主键、外键、索引、视图 |
+| MySQL / MariaDB | ✅ 完整支持 | 同 PostgreSQL 的 schema 模型 |
+| SQLite | ✅ 完整支持 | 单文件数据库，无 schema 层 |
+| SQL Server (MSSQL) | ✅ 完整支持 | 支持 Windows 集成认证（`authType: "integrated"`）|
+| MongoDB | ✅ 完整支持 | 集合、索引、视图、`$jsonSchema` 校验；无列级节点（无 schema 设计使然）|
+| Oracle | 🔜 计划中 | — |
+
+## 驱动安装
+
+部分数据库引擎需要额外的 npm 包。DBGraph 使用惰性加载，您只需要安装实际使用的引擎驱动：
+
+| 引擎 | 安装命令 | 说明 |
+|--------|----------------|-------|
+| PostgreSQL | `npm install pg` | `postgresql` 引擎必需 |
+| MySQL / MariaDB | *(已内置)* | `mysql2` 已默认包含 |
+| SQLite | *(内置)* | 使用 `node:sqlite`（Node.js 22.5+） |
+| SQL Server (MSSQL) | `npm install mssql` | Windows 集成认证还需：`npm install msnodesqlv8` |
+| MongoDB | `npm install mongodb` | 仅有集合级信息，无列级字段（无 schema 设计使然）。支持 SRV（`srv: true`）Atlas 连接 |
+
+示例——添加 MSSQL 和 MongoDB 支持：
+```bash
+npm install mssql mongodb
+```
 
 ## 开发
 

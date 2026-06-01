@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `src/introspect/base.ts:71-73`
 
-- [ ] **Step 1: Replace hardcoded port ternary with engine-to-port map**
+- [x] **Step 1: Replace hardcoded port ternary with engine-to-port map**
 
 Current code in `getDisplayUri()`:
 ```typescript
@@ -35,7 +35,7 @@ const defaultPort = defaultPorts[this.config.engine] ?? 3306;
 const p = this.config.port || defaultPort;
 ```
 
-- [ ] **Step 2: Verify the edit**
+- [x] **Step 2: Verify the edit**
 
 Run: `npx tsc --noEmit` — should produce no errors.
 
@@ -46,7 +46,7 @@ Run: `npx tsc --noEmit` — should produce no errors.
 **Files:**
 - Modify: `src/introspect/connection.ts`
 
-- [ ] **Step 1: Add lazy import for `mssql` package (after the sqlite import block, before the factory comment)**
+- [x] **Step 1: Add lazy import for `mssql` package (after the sqlite import block, before the factory comment)**
 
 ```typescript
 // =============================================================================
@@ -61,7 +61,7 @@ try {
 }
 ```
 
-- [ ] **Step 2: Add MSSQLConnection class (after the lazy import)**
+- [x] **Step 2: Add MSSQLConnection class (after the lazy import)**
 
 ```typescript
 class MSSQLConnection implements DBConnection {
@@ -144,7 +144,7 @@ class MSSQLConnection implements DBConnection {
 }
 ```
 
-- [ ] **Step 3: Add `case 'mssql'` to the `createConnection()` factory**
+- [x] **Step 3: Add `case 'mssql'` to the `createConnection()` factory**
 
 Insert before the default case:
 ```typescript
@@ -152,7 +152,7 @@ Insert before the default case:
       return await MSSQLConnection.create(config);
 ```
 
-- [ ] **Step 4: Update the factory's JSDoc comment**
+- [x] **Step 4: Update the factory's JSDoc comment**
 
 Replace:
 ```
@@ -164,7 +164,7 @@ with:
  *  - `mssql` — via the `mssql` package
 ```
 
-- [ ] **Step 5: Verify compilation**
+- [x] **Step 5: Verify compilation**
 
 Run: `npx tsc --noEmit` — should produce no errors.
 
@@ -175,7 +175,7 @@ Run: `npx tsc --noEmit` — should produce no errors.
 **Files:**
 - Create: `src/introspect/mssql.ts`
 
-- [ ] **Step 1: Create the raw row type interfaces and class skeleton**
+- [x] **Step 1: Create the raw row type interfaces and class skeleton**
 
 ```typescript
 /**
@@ -271,7 +271,7 @@ interface ViewRow {
 }
 ```
 
-- [ ] **Step 2: Create class with constructor and extractAll() skeleton (following PostgreSQL multi-schema pattern)**
+- [x] **Step 2: Create class with constructor and extractAll() skeleton (following PostgreSQL multi-schema pattern)**
 
 ```typescript
 // =============================================================================
@@ -513,7 +513,7 @@ export class MSSQLIntrospector extends BaseIntrospector {
   }
 ```
 
-- [ ] **Step 3: Add query methods (after the class body)**
+- [x] **Step 3: Add query methods (after the class body)**
 
 ```typescript
   // ===========================================================================
@@ -689,7 +689,7 @@ export class MSSQLIntrospector extends BaseIntrospector {
 }
 ```
 
-- [ ] **Step 4: Verify compilation**
+- [x] **Step 4: Verify compilation**
 
 Run: `npx tsc --noEmit` — should produce no errors.
 
@@ -700,14 +700,14 @@ Run: `npx tsc --noEmit` — should produce no errors.
 **Files:**
 - Modify: `src/introspect/index.ts`
 
-- [ ] **Step 1: Add import**
+- [x] **Step 1: Add import**
 
 After the existing imports:
 ```typescript
 import { MSSQLIntrospector } from './mssql';
 ```
 
-- [ ] **Step 2: Add factory case**
+- [x] **Step 2: Add factory case**
 
 After `case 'sqlite':` in `createIntrospector()`:
 ```typescript
@@ -715,7 +715,7 @@ After `case 'sqlite':` in `createIntrospector()`:
       return new MSSQLIntrospector(config);
 ```
 
-- [ ] **Step 3: Update JSDoc comment comment**
+- [x] **Step 3: Update JSDoc comment comment**
 
 Replace `//  - SQLiteIntrospector    (sqlite.ts)` with:
 ```
@@ -723,7 +723,7 @@ Replace `//  - SQLiteIntrospector    (sqlite.ts)` with:
  *  - MSSQLIntrospector     (mssql.ts)
 ```
 
-- [ ] **Step 4: Verify compilation**
+- [x] **Step 4: Verify compilation**
 
 Run: `npx tsc --noEmit` — should produce no errors.
 
@@ -733,19 +733,19 @@ Run: `npx tsc --noEmit` — should produce no errors.
 
 **Files:** N/A (build step)
 
-- [ ] **Step 1: Build the project**
+- [x] **Step 1: Build the project**
 
 Run: `npm run build` — should complete with no errors.
 
-- [ ] **Step 2: Quick smoke test — verify CLI doesn't crash**
+- [x] **Step 2: Quick smoke test — verify CLI doesn't crash**
 
 Run: `node dist/bin/dbgraph.js --help` — should show help text with all commands.
 
-- [ ] **Step 3: Verify MSSQL appears in supported engines**
+- [x] **Step 3: Verify MSSQL appears in supported engines**
 
 Run: `node dist/bin/dbgraph.js config --help` — look for mssql in engine list (if config command shows supported engines).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/introspect/mssql.ts src/introspect/connection.ts src/introspect/index.ts src/introspect/base.ts docs/superpowers/plans/2026-05-30-mssql-support.md
