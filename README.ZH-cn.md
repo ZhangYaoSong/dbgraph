@@ -186,6 +186,7 @@ npx dbgraph status ./other-project  # 其他项目
 | `ssl` | boolean | 否 | 启用 SSL/TLS |
 | `srv` | boolean | 否 | MongoDB：使用 `mongodb+srv://` 协议（Atlas）。忽略端口，强制 TLS。 |
 | `tlsInsecure` | boolean | 否 | MongoDB：允许自签名 TLS 证书 |
+| `authSource` | string | 否 | MongoDB：认证数据库（默认使用目标 database，通常设为 `admin`）|
 
 ## 支持引擎
 

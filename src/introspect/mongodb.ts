@@ -167,12 +167,11 @@ export class MongoDBIntrospector extends BaseIntrospector {
         const validator = collOptions.validator;
         const validationSchema =
           validator && validator.$jsonSchema
-            ? {
-                $jsonSchema: validator.$jsonSchema,
-                ...(collOptions.validationAction ? { validationAction: collOptions.validationAction } : {}),
-                ...(collOptions.validationLevel ? { validationLevel: collOptions.validationLevel } : {}),
-              }
+            ? { $jsonSchema: validator.$jsonSchema }
             : undefined;
+        // Capture non-$jsonSchema validators (e.g. $expr) when no $jsonSchema is present
+        const rawValidator =
+          validator && !validator.$jsonSchema ? validator : undefined;
 
         const collNode = this.makeNode(
           'table',
@@ -183,7 +182,8 @@ export class MongoDBIntrospector extends BaseIntrospector {
             metadata: {
               documentCount: docCount,
               ...(validationSchema ? { validation: validationSchema } : {}),
-              ...(collOptions.capped || collOptions.size || collOptions.max || collOptions.collation || collOptions.timeseries
+              ...(rawValidator ? { rawValidator } : {}),
+              ...(collOptions.capped || collOptions.size || collOptions.max || collOptions.collation || collOptions.timeseries || collOptions.clusteredIndex || collOptions.encryptedFields
                 ? {
                     collectionOptions: {
                       ...(collOptions.capped !== undefined ? { capped: collOptions.capped } : {}),
@@ -191,6 +191,8 @@ export class MongoDBIntrospector extends BaseIntrospector {
                       ...(collOptions.max !== undefined ? { max: collOptions.max } : {}),
                       ...(collOptions.collation ? { collation: collOptions.collation } : {}),
                       ...(collOptions.timeseries ? { timeseries: collOptions.timeseries } : {}),
+                      ...(collOptions.clusteredIndex ? { clusteredIndex: collOptions.clusteredIndex } : {}),
+                      ...(collOptions.encryptedFields ? { encryptedFields: collOptions.encryptedFields } : {}),
                     },
                   }
                 : {}),
@@ -206,10 +208,11 @@ export class MongoDBIntrospector extends BaseIntrospector {
           const idxQual = this.qn(dbName, collName, idxName);
 
           // Determine index type from key values
-          const keyValues = Object.values(idx.key || {}) as any[];
+          const keyEntries = Object.entries(idx.key || {}) as [string, any][];
           const SPECIAL_KEY_TYPES = new Set(['text', '2dsphere', '2d', 'hashed']);
           const idxType =
-            keyValues.find((v: any) => SPECIAL_KEY_TYPES.has(v)) || 'regular';
+            keyEntries.find(([, v]) => SPECIAL_KEY_TYPES.has(v))?.[1]
+            || (keyEntries.some(([k]) => k.includes('$**')) ? 'wildcard' : 'regular');
 
           const idxNode = this.makeNode(
             'index',
@@ -310,13 +313,16 @@ export class MongoDBIntrospector extends BaseIntrospector {
     // SRV protocol does not allow manual port — omit it
     const hostPart = this.config.srv ? host : `${host}:${port}`;
 
+    // Optional authSource query parameter
+    const query = this.config.authSource ? `?authSource=${encodeURIComponent(this.config.authSource)}` : '';
+
     if (auth.user && auth.password) {
-      return `${protocol}://${encodeURIComponent(auth.user)}:${encodeURIComponent(auth.password)}@${hostPart}/${encodedDb}`;
+      return `${protocol}://${encodeURIComponent(auth.user)}:${encodeURIComponent(auth.password)}@${hostPart}/${encodedDb}${query}`;
     }
     if (auth.user) {
-      return `${protocol}://${encodeURIComponent(auth.user)}@${hostPart}/${encodedDb}`;
+      return `${protocol}://${encodeURIComponent(auth.user)}@${hostPart}/${encodedDb}${query}`;
     }
-    return `${protocol}://${hostPart}/${encodedDb}`;
+    return `${protocol}://${hostPart}/${encodedDb}${query}`;
   }
 
   /**

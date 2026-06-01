@@ -312,8 +312,8 @@ No changes to:
 ## Future Considerations (not in v1)
 
 - ~~**Document sampling** — Optional field inference by sampling N documents per collection~~ *(deferred indefinitely — see risk assessment)*
-- **SRV protocol** — `mongodb+srv://` for Atlas/cloud deployments
-- **`authSource` config** — Option to specify auth database separately
-- **Multiple database support** — Introspect all databases on a MongoDB server
-- **`$expr` validation** — Non-JSON-Schema validators
-- **MongoDB 7+ features** — New index types, encrypted collections
+- ~~**SRV protocol** — `mongodb+srv://` for Atlas/cloud deployments~~ *(已实现 — config.srv: true)*
+- ~~**`authSource` config** — Option to specify auth database separately~~ *(已实现 — config.authSource)*
+- **Multiple database support** — Introspect all databases on a MongoDB server *(可通过配置多个 sources 实现，见 README)*
+- **`$expr` validation** — Non-JSON-Schema validators *(已实现 — metadata.rawValidator)*
+- **MongoDB 7+ features** — New index types, encrypted collections *(部分已实现 — clusteredIndex/encryptedFields 元数据 + wildcard 索引类型检测)*

@@ -186,6 +186,7 @@ Edit `dbgraph-db.json` in your project root:
 | `ssl` | boolean | no | Enable SSL/TLS |
 | `srv` | boolean | no | MongoDB: use `mongodb+srv://` protocol (Atlas). Port is ignored, TLS forced. |
 | `tlsInsecure` | boolean | no | MongoDB: allow self-signed TLS certificates |
+| `authSource` | string | no | MongoDB: auth database (defaults to target database, commonly `admin`) |
 
 ## Supported Engines
 

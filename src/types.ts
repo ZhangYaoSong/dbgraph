@@ -224,6 +224,9 @@ export interface DbConnectionConfig {
 
   /** Use mongodb+srv:// protocol (MongoDB Atlas). When true, port is ignored and TLS is forced. */
   srv?: boolean;
+
+  /** MongoDB: auth database name (defaults to the target database if not set, commonly "admin") */
+  authSource?: string;
 }
 
 // =============================================================================
