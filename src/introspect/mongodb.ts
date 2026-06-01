@@ -169,8 +169,12 @@ export class MongoDBIntrospector extends BaseIntrospector {
           validator && validator.$jsonSchema
             ? { $jsonSchema: validator.$jsonSchema }
             : undefined;
-        // Capture non-$jsonSchema validators (e.g. $expr) when no $jsonSchema is present
-        const rawValidator =
+        // Capture non-$jsonSchema validators (e.g. $expr) when no $jsonSchema is present.
+        // NOTE: when BOTH $jsonSchema and other validators ($expr, etc.) exist on the same
+        // collection, only $jsonSchema is stored in `validation` since it's the structured,
+        // field-aware form most useful to AI agents. The other validators are intentionally
+        // omitted in that case.
+        const nonJsonSchemaValidator =
           validator && !validator.$jsonSchema ? validator : undefined;
 
         const collNode = this.makeNode(
@@ -182,7 +186,7 @@ export class MongoDBIntrospector extends BaseIntrospector {
             metadata: {
               documentCount: docCount,
               ...(validationSchema ? { validation: validationSchema } : {}),
-              ...(rawValidator ? { rawValidator } : {}),
+              ...(nonJsonSchemaValidator ? { rawValidator: nonJsonSchemaValidator } : {}),
               ...(collOptions.capped || collOptions.size || collOptions.max || collOptions.collation || collOptions.timeseries || collOptions.clusteredIndex || collOptions.encryptedFields
                 ? {
                     collectionOptions: {
