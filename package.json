@@ -1,6 +1,6 @@
 {
   "name": "dbgraph",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Database knowledge graph for LLM-powered SQL generation. Introspect database schemas into a local-first knowledge graph, exposed over MCP.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
